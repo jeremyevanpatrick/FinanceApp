@@ -1,0 +1,55 @@
+﻿@using FinanceApp2.Shared.Models
+@using FinanceApp2.Shared.Services.DTOs
+
+<div class="itemItem contentRow">
+    @if (IsEnterMode)
+    {
+        <span class="deleteItemBtn btn btn-danger squareBtn" @onclick="OnDeleteItemClicked">×</span>
+    }
+    <InputText class="itemNameInput form-control" placeholder="Item Name" @bind-Value="Item.ItemName" readonly="@(!IsEnterMode)" />
+    <div class="inputContainer">
+        <InputNumber
+            class="itemBudgetedInput form-control rightColInput"
+            max="9999" min="-9999"
+            @bind-Value="Item.Budgeted"
+            @bind-Value:after="OnBudgetedValueChanged"
+            readonly="@(!IsEnterMode)" />
+    </div>
+    <div class="inputContainer">
+        <InputNumber
+            class="itemSpentInput form-control rightColInput"
+            max="9999" min="-9999"
+            @bind-Value="Item.Spent"
+            readonly="@(!IsEnterMode)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsEnterMode { get; set; }
+
+    [Parameter]
+    public ItemDto Item { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<ItemDto> OnChangeItem { get; set; }
+
+    [Parameter]
+    public EventCallback<ItemDto> OnDeleteItem { get; set; }
+
+    private async Task OnBudgetedValueChanged()
+    {
+        if (OnChangeItem.HasDelegate)
+        {
+            await OnChangeItem.InvokeAsync(Item);
+        }
+    }
+
+    private async Task OnDeleteItemClicked()
+    {
+        if (OnDeleteItem.HasDelegate)
+        {
+            await OnDeleteItem.InvokeAsync(Item);
+        }
+    }
+}

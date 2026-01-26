@@ -1,0 +1,54 @@
+﻿<button @attributes="AdditionalAttributes"
+        class="@CssClass"
+        disabled="@(Disabled || _isLoading)"
+        @onclick="HandleClickAsync">
+    @if (_isLoading)
+    {
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    [Parameter]
+    public Func<Task>? OnClickAsync { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> AdditionalAttributes { get; set; } = new();
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool _isLoading = false;
+
+    private string CssClass
+    {
+        get
+        {
+            var baseClass = AdditionalAttributes.ContainsKey("class") ? AdditionalAttributes["class"]?.ToString() : string.Empty;
+            return baseClass ?? string.Empty;
+        }
+    }
+
+    private async Task HandleClickAsync()
+    {
+        if (OnClickAsync is null || _isLoading)
+        {
+            return;
+        }
+
+        try
+        {
+            _isLoading = true;
+            await OnClickAsync();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,123 @@
+﻿@page "/confirmemail"
+@using FinanceApp2.Shared.Data
+@using FinanceApp2.Web.Components
+@using FinanceApp2.Web.Data
+@using FinanceApp2.Web.Helpers
+@using FinanceApp2.Web.Models
+@using FinanceApp2.Web.Services
+@inject NavigationManager NavManager
+@inject IAuthClient AuthService
+
+<div id="loginHeader" class="text-center">
+    <span id="nameplate" class="d-inline-block mt-5 mb-3 pt-5 ps-0">
+        <img src="favicon.ico" />Finance App
+    </span>
+</div>
+
+<div class="contentRow fs-5 p-2 text-center fw-bold" style="border-top: 1px solid #CCC;">Email Confirmation</div>
+
+<StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+
+@if (isLoading)
+{
+    <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+        Confirming your email address…
+    </div>
+}
+else
+{
+    if (isConfirmationSuccess)
+    {
+        <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+            <strong>Email confirmed!</strong><br />
+            You can now sign in to your account.
+        </div>
+    }
+    else
+    {
+        if (!isEmailResent)
+        {
+            <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+                <strong>Confirmation failed.</strong><br />
+                The link is invalid or has already been used.
+            </div>
+            <div class="contentRow" style="padding-top: 3px;padding-bottom: 3px;">
+                <EditForm EditContext="resendEmailConfirmationForm.EditContext">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="d-inline-block w-100 lh-base pt-3">Enter your email address to resend the confirmation link.</div>
+                    <div class="d-inline-block w-100">Email</div>
+                    <InputTextNoAuto @bind-Value="resendEmailConfirmationForm.Model.Email" type="text" class="form-control" />
+                    <ButtonWithSpinner
+                        OnClickAsync="HandleResend"
+                        class="btn btn-success mt-3 mb-3"
+                        Disabled="!resendEmailConfirmationForm.IsValid">
+                        Resend confirmation email
+                    </ButtonWithSpinner>
+                </EditForm>
+            </div>
+        }
+        else
+        {
+            <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+                <strong>Email sent!</strong><br />
+                We’ve sent a new confirmation link to your email.<br />
+                Click the link to activate your account and sign in.
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? UserId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Token { get; set; }
+
+    private bool isLoading = true;
+    private bool isConfirmationSuccess = false;
+    private bool isEmailResent = false;
+    
+    private StatusMessageHelper statusMessageHelper = default!;
+
+    private FormState<ResendEmailConfirmationModel> resendEmailConfirmationForm = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            resendEmailConfirmationForm = new FormState<ResendEmailConfirmationModel>(StateHasChanged);
+            resendEmailConfirmationForm.Model.Email = UserId ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(UserId) || string.IsNullOrWhiteSpace(Token))
+            {
+                statusMessageHelper.ShowError("Error loading page");
+            }
+            else
+            {
+                await AuthService.ConfirmEmailAsync(UserId, Token);
+                isConfirmationSuccess = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            isConfirmationSuccess = false;
+        }
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleResend()
+    {
+        try
+        {
+            await AuthService.ResendConfirmationEmailAsync(resendEmailConfirmationForm.Model.Email);
+        }
+        catch (Exception ex) {}
+        isEmailResent = true;
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,14 @@
+﻿namespace FinanceApp2.Web.Services.Requests
+{
+    public class RegisterWebRequest
+    {
+        public RegisterWebRequest(string email, string password)
+        {
+            Email = email;
+            Password = password;
+        }
+
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+}

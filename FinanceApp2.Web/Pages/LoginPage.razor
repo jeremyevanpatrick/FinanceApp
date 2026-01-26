@@ -1,0 +1,162 @@
+﻿@page "/login"
+@using FinanceApp2.Shared.Data
+@using FinanceApp2.Shared.Services
+@using FinanceApp2.Web.Components
+@using FinanceApp2.Web.Helpers
+@using FinanceApp2.Web.Models
+@using FinanceApp2.Web.Services
+@using System.ComponentModel.DataAnnotations
+@inject IAuthClient AuthClient
+@inject NavigationManager NavManager
+@inject NavigationMessageService MessageService
+
+<div id="loginHeader" class="text-center">
+    <span id="nameplate" class="d-inline-block mt-5 mb-3 pt-5">
+        <img src="favicon.ico" />Finance App
+    </span>
+</div>
+
+<StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+
+<div class="collapsibleSection @(isSignInVisible ? "open" : "")">
+    <div class="contentRow fw-bold text-center fs-5 pt-2 pb-2" style="border-top: 1px solid #CCC;">Sign In</div>
+
+    <EditForm EditContext="@loginForm.EditContext">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="contentRow form-floating">
+            <InputText id="emailLogin" @bind-Value="loginForm.Model.Email" class="form-control" placeholder=" " />
+            <label for="emailLogin">Email</label>
+        </div>
+
+        <div class="contentRow form-floating">
+            <InputText id="passwordLogin" type="password" @bind-Value="loginForm.Model.Password" class="form-control" placeholder=" " />
+            <label for="passwordLogin">Password</label>
+        </div>
+
+        <div class="contentRow pt-3 pb-3" style="padding-top: 3px;padding-bottom: 3px;">
+            <ButtonWithSpinner
+                OnClickAsync="HandleLogin"
+                class="btn btn-primary float-start"
+                Disabled="!loginForm.IsValid">
+                Sign In
+            </ButtonWithSpinner>
+            <NavLink href="/forgotpassword" class="float-end" style="line-height: 35px;">Forgot password?</NavLink>
+        </div>
+    </EditForm>
+
+    <div class="contentRow text-center text-white bg-primary" style="padding-top: 13px;padding-bottom: 13px;">
+        <div class="width-100 fs-6">Register a new account</div>
+        <button class="btn btn-light" @onclick="ToggleSection">Sign Up</button>
+    </div>
+</div>
+
+<div class="collapsibleSection @(!isSignInVisible ? "open" : "")">
+    <div class="contentRow text-center text-white bg-primary" style="padding-top: 13px;padding-bottom: 13px;">
+        <div class="width-100 fs-6">Sign in with existing account</div>
+        <button class="btn btn-light" @onclick="ToggleSection">Sign In</button>
+    </div>
+
+    <div class="contentRow fw-bold text-center fs-5 pt-2 pb-2">Register new account</div>
+    @if (!isPendingEmailConfirmation)
+    {
+        <EditForm EditContext="@registerForm.EditContext">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="contentRow form-floating">
+                <InputTextNoAuto id="emailRegister2" type="text" @bind-Value="registerForm.Model.Email" class="form-control" placeholder=" " />
+                <label for="emailRegister">Email</label>
+            </div>
+
+            <div class="contentRow form-floating">
+                <InputTextNoAuto id="passwordRegister" type="password" @bind-Value="registerForm.Model.Password" class="form-control" placeholder=" " />
+                <label for="passwordRegister">Password</label>
+            </div>
+
+            <div class="contentRow form-floating">
+                <InputTextNoAuto id="passwordRepeatRegister" type="password" @bind-Value="registerForm.Model.PasswordRepeat" class="form-control" placeholder=" " />
+                <label for="passwordRepeatRegister">Repeat Password</label>
+            </div>
+
+            <div class="contentRow pt-3 pb-3">
+                <ButtonWithSpinner
+                    OnClickAsync="HandleRegister"
+                    class="btn btn-primary float-start"
+                    Disabled="!registerForm.IsValid">
+                    Sign Up
+                </ButtonWithSpinner>
+            </div>
+        </EditForm>
+    }
+    else
+    {
+        <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+            <strong>Account created! Please confirm your email address.</strong><br />
+            We’ve sent a confirmation link to your email.<br />
+            Click the link to activate your account and sign in.
+        </div>
+    }
+</div>
+
+@code {
+    private bool isSignInVisible = true;
+    private bool isPendingEmailConfirmation = false;
+
+    private StatusMessageHelper statusMessageHelper = default!;
+
+    private FormState<LoginModel> loginForm = default!;
+    private FormState<RegisterModel> registerForm = default!;
+
+    protected override void OnInitialized()
+    {
+        statusMessageHelper = new StatusMessageHelper(() => InvokeAsync(StateHasChanged));
+        statusMessageHelper.ShowStatuses(MessageService.ConsumeAll());
+        loginForm = new FormState<LoginModel>(StateHasChanged);
+        registerForm = new FormState<RegisterModel>(StateHasChanged);
+    }
+
+    private void ToggleSection()
+    {
+        isSignInVisible = !isSignInVisible;
+
+        if (isSignInVisible)
+        {
+            registerForm.Reset();
+        }
+        else
+        {
+            loginForm.Reset();
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            await AuthClient.LoginAsync(loginForm.Model.Email, loginForm.Model.Password);
+            NavManager.NavigateTo("/budgets");
+        }
+        catch (Exception ex)
+        {
+            statusMessageHelper.ShowError("Invalid credentials");
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            await AuthClient.RegisterAsync(registerForm.Model.Email, registerForm.Model.Password);
+            isPendingEmailConfirmation = true;
+        }
+        catch (Exception ex)
+        {
+            statusMessageHelper.ShowError("Registration failed");
+        }
+        StateHasChanged();
+    }
+}

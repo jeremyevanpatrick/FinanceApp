@@ -1,0 +1,19 @@
+﻿@inherits InputText
+
+<input @attributes="AdditionalAttributes"
+       class="@CssClass"
+       value="@CurrentValueAsString"
+       @onchange="HandleChange"
+       autocomplete="off"
+       readonly="@_isReadOnly"
+       @onfocus="() => _isReadOnly = false"
+       @onblur="() => _isReadOnly = true" />
+
+@code {
+    private bool _isReadOnly = true;
+
+    private void HandleChange(ChangeEventArgs e)
+    {
+        CurrentValueAsString = e.Value?.ToString();
+    }
+}

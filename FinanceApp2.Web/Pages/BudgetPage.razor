@@ -1,0 +1,200 @@
+﻿@page "/"
+@page "/budgets"
+@using FinanceApp2.Shared.Data
+@using FinanceApp2.Shared.Models
+@using FinanceApp2.Shared.Services
+@using FinanceApp2.Shared.Services.DTOs
+@using FinanceApp2.Web.Data
+@using FinanceApp2.Web.Components
+@using FinanceApp2.Web.Helpers
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject NavigationManager NavManager
+@inject NavigationMessageService MessageService
+@inject IBudgetClient BudgetClient
+@inject IAuthClient AuthClient
+@inject AuthenticationStateProvider AuthStateProvider
+
+@if (showConfirmDeleteBudget)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal show d-block">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+                    Are you sure you want to delete the @(GetMonthYearDisplay()) budget?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showConfirmDeleteBudget = false">Cancel</button>
+                    <ButtonWithSpinner
+                        OnClickAsync="ConfirmDeleteBudgetClicked"
+                        class="btn btn-danger">
+                        Yes, delete
+                    </ButtonWithSpinner>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div id="budgetList" class="@(isEnterMode ? "showEnter" : "")">
+
+    <div id="budgetHeader">
+        <span id="nameplate">
+            <img src="favicon.ico" />Finance App
+        </span>
+
+        @if (!isEnterMode)
+        {
+            if (budgetContainer.Budget != null)
+            {
+                <div id="enterBtn" class="btn btn-primary" @onclick="EnableEnterMode">Enter</div>
+            }
+            <div id="editAccountBtn" class="btn btn-primary" @onclick="OnEditAccount">Profile</div>
+        }
+        else
+        {
+            <ButtonWithSpinner
+                id="saveEnterBtn"
+                OnClickAsync="OnSaveChanges"
+                class="btn btn-success">
+                Save
+            </ButtonWithSpinner>
+            <div id="cancelEnterBtn" class="btn btn-danger" @onclick="OnCancelEdit">Cancel</div>
+        }
+    </div>
+    
+    @if (!showConfirmDeleteBudget)
+    {
+        <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+    }
+
+    <div class="navigationContainer contentRow bg-light">
+        @if (!isEnterMode)
+        {
+            if (budgetContainer.Budget != null && !(budgetContainer.HasPreviousMonth))
+            {
+                <a class="btn squareBtn float-start fw-bold" @onclick="() => OnCreateBudget(previousBudgetDate, currentBudgetDate)">+</a>
+            }
+            else
+            {
+                <a class="btn squareBtn float-start" @onclick="NavigateToPreviousMonth">&#9664;</a>
+            }
+        }
+        else
+        {
+            <span class="deleteBudgetBtn btn btn-danger squareBtn float-start" @onclick="() => showConfirmDeleteBudget = true">×</span>
+        }
+
+        <span id="currentDate">
+            @GetMonthYearDisplay()
+        </span>
+
+        @if (!isEnterMode)
+        {
+            if (budgetContainer.Budget != null && !(budgetContainer.HasNextMonth))
+            {
+                <a class="btn squareBtn float-start fw-bold" @onclick="() => OnCreateBudget(nextBudgetDate, currentBudgetDate)">+</a>
+            }
+            else
+            {
+                <a class="btn squareBtn float-start" @onclick="NavigateToNextMonth">&#9654;</a>
+            }
+        }
+        else
+        {
+            <div class="squareBtn float-start">&nbsp;</div>
+        }
+
+        @if (budgetContainer.Budget != null)
+        {
+            <InputNumber
+                id="income"
+                placeholder="Income"
+                class="float-end form-control"
+                @bind-Value="budgetContainer.Budget.Income"
+                @bind-Value:after="HandleUpdateCalculation"
+                readonly="@(!isEnterMode)" />
+        }
+    </div>
+
+    @if(isInitialBudgetLoaded)
+    {
+        if (budgetContainer.Budget != null)
+        {
+            <div class="contentRow">
+                <div class="inputContainer">
+                    <div class="rightColHeader itemBudgetedHeader">Budget</div>
+                </div>
+                <div class="inputContainer">
+                    <div class="rightColHeader itemSpentHeader">Actual</div>
+                </div>
+            </div>
+
+            if (orderedGroups.Any(x => !x.IsDeleted))
+            {
+                foreach (GroupDto group in orderedGroups)
+                {
+                    <GroupView @key="group.GroupId" IsEnterMode="isEnterMode" OnChangeTotal="HandleUpdateCalculation" OnDeleteGroup="HandleDeleteGroup" OnMoveUpGroup="HandleMoveUpGroup" Group="group" IsFirstGroup="group.Order == orderedGroups.First().Order" />
+                }
+            }
+            else
+            {
+                <div id="noGroups" class="contentRow">
+                    <span class="itemName">No Groups were found.</span>
+                </div>
+            }
+
+            if (isEnterMode)
+            {
+                <div class="addGroupRow contentRow">
+                    <InputText class="addGroupInput form-control" @bind-Value="newGroupName" placeholder="Add Group..." />
+                    <span class="addGroupBtn btn btn-success squareBtn" @onclick="HandleAddGroup">+</span>
+                </div>
+            }
+
+            <div class="contentRow">
+                <span class="itemName"> </span>
+            </div>
+
+            <div class="contentRow">
+                <span class="totalAmountContainer">$<span id="incomeTotal">@(budgetContainer.Budget?.Income ?? 0)</span></span>
+                <span class="totalAmountLabel">Income</span>
+            </div>
+            <div class="contentRow">
+                <span class="totalAmountContainer">$<span id="expensesTotal">@(budgetContainer.Budget?.BudgetTotal)</span></span>
+                <span class="totalAmountLabel">Expenses</span>
+            </div>
+            <div class="contentRow">
+                <span class="totalAmountContainer" style="color: @(budgetContainer.Budget?.BalanceTotal < 0 ? "red" : "inherit")">
+                    $<span id="balanceTotal">@(budgetContainer.Budget?.BalanceTotal)</span>
+                </span>
+                <span class="totalAmountLabel">Balance</span>
+            </div>
+        }
+        else
+        {
+            <div class="navigationContainer contentRow bg-light">
+                @if (budgetContainer.HasPreviousMonth)
+                {
+                    <a class="btn btn-success float-start" @onclick="() => OnCreateBudget(currentBudgetDate, previousBudgetDate)">+ Duplicate Previous</a>
+                }
+                <a class="btn btn-success float-start" @onclick="() => OnCreateBudget(currentBudgetDate)">+ Create Budget</a>
+            </div>
+            <div class="contentRow">
+                <span class="itemName">Create a budget to get started.</span>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="position-relative d-inline-block w-100 text-center mt-5">
+            <div class="spinner-border" style="width: 8rem; height: 8rem; border:0.6rem solid #1b6ec2; border-bottom-color: transparent;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="position-absolute text-center fw-bold" style="inset: 3rem 0 auto 0;">Loading...</div>
+        </div>
+    }
+</div>

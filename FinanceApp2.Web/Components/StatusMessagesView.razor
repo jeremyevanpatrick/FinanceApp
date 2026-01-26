@@ -1,0 +1,28 @@
+﻿@using FinanceApp2.Shared.Helpers
+@using FinanceApp2.Shared.Models
+@using FinanceApp2.Shared.Services.DTOs
+@using FinanceApp2.Web.Helpers
+
+@if (StatusMessages.Any())
+{
+    <div class="container">
+        @foreach ((string message, UIStatus status) statusMessage in StatusMessages)
+        {
+            string statusClass = string.Empty;
+            if (UIStatus.Success.Equals(statusMessage.status))
+            {
+                statusClass = "text-success";
+            }
+            else if (UIStatus.Error.Equals(statusMessage.status))
+            {
+                statusClass = "text-danger";
+            }
+            <div class="text-center @(statusClass)">@statusMessage.message</div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public List<(string message, UIStatus status)> StatusMessages { get; set; } = new List<(string message, UIStatus status)>();
+}

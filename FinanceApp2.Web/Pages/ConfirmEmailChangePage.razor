@@ -1,0 +1,85 @@
+﻿@page "/confirmemailchange"
+@using FinanceApp2.Shared.Data
+@using FinanceApp2.Web.Components
+@using FinanceApp2.Web.Data
+@using FinanceApp2.Web.Helpers
+@using FinanceApp2.Web.Services
+@inject NavigationManager NavManager
+@inject IAuthClient AuthService
+
+<div id="loginHeader" class="text-center">
+    <span id="nameplate" class="d-inline-block mt-5 mb-3 pt-5 ps-0">
+        <img src="favicon.ico" />Finance App
+    </span>
+</div>
+
+<div class="contentRow fs-5 p-2 text-center fw-bold" style="border-top: 1px solid #CCC;">Email Change Confirmation</div>
+
+<StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+
+@if (isLoading)
+{
+    <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+        Confirming your email address…
+    </div>
+}
+else
+{
+    if (isConfirmationSuccess)
+    {
+        <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+            <strong>Email confirmed!</strong><br />
+            Your email address is now updated.
+        </div>
+    }
+    else
+    {
+        <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+            <strong>Confirmation failed.</strong><br />
+            The link is invalid or has already been used.
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? UserId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Token { get; set; }
+
+    private bool isLoading = true;
+    private bool isConfirmationSuccess = false;
+
+    private StatusMessageHelper statusMessageHelper = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        statusMessageHelper = new StatusMessageHelper(() => InvokeAsync(StateHasChanged));
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(UserId) || string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Token))
+            {
+                statusMessageHelper.ShowError("Error loading page");
+            }
+            else
+            {
+                await AuthService.ChangeEmailConfirmationAsync(UserId, Email, Token);
+                isConfirmationSuccess = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            isConfirmationSuccess = false;
+        }
+        isLoading = false;
+        StateHasChanged();
+    }
+}

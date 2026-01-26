@@ -1,0 +1,223 @@
+﻿@page "/Account"
+@using FinanceApp2.Shared.Data
+@using FinanceApp2.Shared.Services
+@using FinanceApp2.Web.Components
+@using FinanceApp2.Web.Helpers
+@using FinanceApp2.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject NavigationManager NavManager
+@inject NavigationMessageService MessageService
+@inject IAuthClient AuthClient
+@inject AuthenticationStateProvider AuthStateProvider
+
+@if (showConfirmDeleteAccount)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal show d-block">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm EditContext="deleteAccountForm.EditContext">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="modal-body">
+                        <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+                        Are you sure you want to permanently delete your account?
+                        <div class="d-inline-block w-100">
+                            Enter password to confirm this action.<br />
+                            <InputTextNoAuto id="deleteAccountPassword" type="password" @bind-Value="deleteAccountForm.Model.Password" class="form-control float-start" />
+                            <span class="text-danger">Warning: This action cannot be reversed.</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="HideDeleteModal">Cancel</button>
+                        <ButtonWithSpinner
+                            OnClickAsync="ConfirmDeleteAccountClicked"
+                            class="btn btn-danger"
+                            Disabled="!deleteAccountForm.IsValid">
+                            Yes, delete
+                        </ButtonWithSpinner>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<div id="budgetHeader">
+    <span id="nameplate">
+        <img src="favicon.ico">Finance App
+    </span>
+    <div id="backBtn" class="btn btn-secondary float-end" style="margin: 3px;" @onclick="HandleBackClick">Back</div>
+    <a href="#" id="logoutLink" class="d-inline-block float-end" @onclick="HandleLogout">Logout</a>
+</div>
+
+@if (!showConfirmDeleteAccount)
+{
+    <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+}
+
+<div class="contentRow fs-5 pt-2 pb-2 text-center fw-bold">Profile</div>
+<div class="contentRow ps-3 pe-3 text-center">
+    <div class="d-inline-block w-100">@userEmail</div>
+</div>
+<div class="contentRow ps-3 pe-3 fw-bold bg-primary text-white">Change Email</div>
+@if (!isNewEmailSaved)
+{
+    <div class="contentRow ps-3 pe-3">
+        <EditForm EditContext="changeEmailForm.EditContext">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="d-inline-block w-100">New Email</div>
+            <InputTextNoAuto id="changeEmailNewEmail" @bind-Value="changeEmailForm.Model.NewEmail" class="form-control float-start" style="margin: 3px 0px;" />
+            <div class="d-inline-block w-100">Password</div>
+            <InputTextNoAuto id="changeEmailPassword" type="password" @bind-Value="changeEmailForm.Model.Password" class="form-control float-start" style="margin: 3px 0px;" />
+            <ButtonWithSpinner
+                OnClickAsync="HandleSaveEmail"
+                class="btn btn-success mt-3 mb-3"
+                Disabled="!changeEmailForm.IsValid">
+                Save
+            </ButtonWithSpinner>
+        </EditForm>
+    </div>
+}
+else
+{
+    <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+        <strong>Request sent! Please confirm your email address.</strong><br />
+        We’ve sent a confirmation link to your email.<br />
+        Click the link to confirm your new email address.
+    </div>
+}
+<div class="contentRow ps-3 pe-3 fw-bold bg-primary text-white">Change Password</div>
+@if (!isNewPasswordSaved)
+{
+    <div class="contentRow ps-3 pe-3">
+        <EditForm EditContext="changePasswordForm.EditContext">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="d-inline-block w-100">Existing Password</div>
+            <InputTextNoAuto id="changePasswordExistingPassword" type="password" @bind-Value="changePasswordForm.Model.ExistingPassword" class="form-control float-start" style="margin: 3px 0px;" />
+            <div class="d-inline-block w-100">New Password</div>
+            <InputTextNoAuto id="changePasswordNewPassword" type="password" @bind-Value="changePasswordForm.Model.NewPassword" class="form-control float-start" style="margin: 3px 0px;" />
+            <ButtonWithSpinner
+                OnClickAsync="HandleSavePassword"
+                class="btn btn-success mt-3 mb-3"
+                Disabled="!changePasswordForm.IsValid">
+                Save
+            </ButtonWithSpinner>
+        </EditForm>
+    </div>
+}
+else
+{
+    <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px;">
+        <strong>Password saved!</strong>
+    </div>
+}
+
+<div class="contentRow ps-3 pe-3 fw-bold bg-primary text-white">Delete Account</div>
+<div class="contentRow ps-3 pe-3">
+    <div class="d-inline-block w-100">Delete all user data</div>
+    <button class="btn btn-danger mt-2 mb-3" @onclick="ShowDeleteModal">Delete</button>
+</div>
+
+@code {
+    private bool isNewEmailSaved = false;
+    private bool isNewPasswordSaved = false;
+    private bool showConfirmDeleteAccount = false;
+
+    private FormState<ChangeEmailModel> changeEmailForm = default!;
+    private FormState<ChangePasswordModel> changePasswordForm = default!;
+    private FormState<DeleteAccountModel> deleteAccountForm = default!;
+
+    private string userEmail = string.Empty;
+
+    private StatusMessageHelper statusMessageHelper = default!;
+
+    protected override void OnInitialized()
+    {
+        statusMessageHelper = new StatusMessageHelper(() => InvokeAsync(StateHasChanged));
+        statusMessageHelper.ShowStatuses(MessageService.ConsumeAll());
+        changeEmailForm = new FormState<ChangeEmailModel>(StateHasChanged);
+        changePasswordForm = new FormState<ChangePasswordModel>(StateHasChanged);
+        deleteAccountForm = new FormState<DeleteAccountModel>(StateHasChanged);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userEmail = await AuthClient.GetUserEmailAsync();
+    }
+
+    private async Task HandleSaveEmail()
+    {
+        try
+        {
+            await AuthClient.ChangeEmailAsync(changeEmailForm.Model.NewEmail, changeEmailForm.Model.Password);
+            isNewEmailSaved = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            statusMessageHelper.ShowError("Save email failed");
+        }
+    }
+
+    private async Task HandleSavePassword()
+    {
+        try
+        {
+            await AuthClient.ChangePasswordAsync(changePasswordForm.Model.ExistingPassword, changePasswordForm.Model.NewPassword);
+            isNewPasswordSaved = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            statusMessageHelper.ShowError("Change password failed");
+        }
+    }
+
+    private void ShowDeleteModal()
+    {
+        showConfirmDeleteAccount = true;
+        StateHasChanged();
+    }
+
+    private void HideDeleteModal()
+    {
+        showConfirmDeleteAccount = false;
+        deleteAccountForm.Reset();
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDeleteAccountClicked()
+    {
+        try
+        {
+            await AuthClient.DeleteAccountAsync(deleteAccountForm.Model.Password);
+            MessageService.AddSuccess("Account successfully deleted");
+            HandleLogout();
+        }
+        catch (Exception ex)
+        {
+            statusMessageHelper.ShowError("Change password failed");
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthClient.LogoutAsync();
+        } catch { }
+
+        NavManager.NavigateTo("/login");
+    }
+
+    private async Task HandleBackClick()
+    {
+        NavManager.NavigateTo("/budgets");
+    }
+}

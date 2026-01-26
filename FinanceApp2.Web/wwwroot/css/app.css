@@ -1,0 +1,586 @@
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+h1:focus {
+    outline: none;
+}
+
+a, .btn-link {
+    color: #0071c1;
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+.content {
+    padding-top: 1.1rem;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid red;
+}
+
+.validation-message {
+    color: red;
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+.loading-progress {
+    width: 8rem;
+    height: 8rem;
+    margin: 0px auto;
+    position: absolute;
+    inset: 20vh 0 auto 0.2rem;
+}
+
+    .loading-progress circle {
+        fill: none;
+        stroke: #e0e0e0;
+        stroke-width: 0.6rem;
+        transform-origin: 50% 50%;
+        transform: rotate(-90deg);
+    }
+
+        .loading-progress circle:last-child {
+            stroke: #1b6ec2;
+            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+            transition: stroke-dasharray 0.05s ease-in-out;
+        }
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: bold;
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+}
+
+    .loading-progress-text:after {
+        content: var(--blazor-load-percentage-text, "Loading");
+    }
+
+code {
+    color: #c02d76;
+}
+
+/*****************************************
+*   Document styles
+*****************************************/
+@font-face {
+    font-family: 'fira-sans';
+    src: url('../fonts/firasans-regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+}
+
+body {
+    margin: 0px;
+    padding: 0px;
+    border: 0px;
+    outline: 0px;
+    font-family: Arial;
+    font-size: 14px;
+    line-height: 40px;
+    color: #1a1a1a;
+    background-color: #b3cbff;
+    height: 100vh;
+}
+
+#app {
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background-color: #FFF;
+    top:0px;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+#serverErrors {
+    margin-top: 5px;
+}
+
+    #serverErrors > div {
+        margin-bottom: 3px;
+    }
+
+.btn {
+    font-size: 14px;
+}
+
+.spinner {
+    background-image: url(../Content/spinner1.gif);
+    background-size: 100%;
+    height: 34px;
+    width: 34px;
+    float: right;
+    display: none;
+}
+
+/*****************************************
+*   Login page styles
+*****************************************/
+#login form input,
+#forgotPassword form input,
+#signup form input {
+    margin-bottom: 3px;
+}
+
+#forgotPassword,
+#signup {
+    display: none;
+}
+
+#showForgot {
+    float: right;
+}
+
+#forgotPasswordStatus {
+    display: none;
+}
+
+.form-floating label {
+    min-height: 27px !important;
+    top: 19px;
+    height: 27px !important;
+    line-height: 15px;
+    padding: 5px 12px;
+    left: 0.75rem;
+}
+
+.form-floating > .form-control-plaintext ~ label,
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label,
+.form-floating > .form-select ~ label {
+    top: 11px;
+}
+
+.form-floating label::after {
+    top: 2px !important;
+}
+
+.form-floating input {
+    margin: 3px 0px;
+    padding: .375rem .75rem;
+    border: 2px solid #CCC;
+    height: 50px !important;
+    padding-top: 24px;
+}
+
+.collapsibleSection {
+    max-height:0px;
+    overflow: hidden;
+    transition:max-height 1s ease;
+}
+.collapsibleSection.open {
+    max-height: 1000px;
+}
+
+/*****************************************
+*   Budget page styles
+*****************************************/
+#budgetList {
+    display: inline-block;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+.navigationContainer > input,
+.groupItem > input,
+.addGroupRow > input,
+.addItemRow > input,
+.itemItem > input,
+.itemItem .inputContainer > input,
+.groupTotalRow > .groupTotalInput {
+    border: 0px;
+    color: #1a1a1a;
+    pointer-events: none;
+}
+
+.groupTotalInput {
+    margin: 3px 2px;
+    padding-left: 0px;
+}
+
+.showEnter .navigationContainer > input,
+.showEnter .groupItem > input,
+.showEnter .addGroupRow > input,
+.showEnter .addItemRow > input,
+.showEnter .itemItem > input,
+.showEnter .itemItem .inputContainer > input {
+    pointer-events: auto;
+    border: 2px solid #CCC;
+}
+
+/*****************************************
+*   Header area styles
+*****************************************/
+#budgetHeader {
+    display: inline-block;
+    padding: 8px 0px;
+    width: 100%;
+    display: block;
+    font-family: arial, sans-serif;
+    border-bottom: 1px solid #CCC;
+    position: relative;
+    font-weight: inherit;
+    color: #1a1a1a;
+    background-color: #FFFFFF;
+    line-height: 40px;
+}
+
+#nameplate {
+    font-size: 13pt;
+    color: #1a1a1a;
+    font-weight: bold;
+    font-family: fira-sans;
+    max-width: calc(100% - 70px);
+    padding-left: 10px;
+}
+
+#nameplate > img {
+    margin-right: 5px;
+}
+
+#editAccountBtn,
+#cancelEditBtn,
+#enterBtn,
+#saveEnterBtn,
+#cancelEnterBtn {
+    float: right;
+    margin: 3px;
+    display: inline-block;
+}
+
+#logoutLink {
+    float: right;
+    margin: 0px 5px;
+    display: inline-block;
+}
+
+/*****************************************
+*   Edit Account Area
+*****************************************/
+#editAccountSection {
+    height: 0px;
+    overflow: hidden;
+    background-color: #FFFFFF;
+    padding: 0px 3px;
+    border-bottom: 0px solid rgb(204, 204, 204);
+    text-align: left;
+}
+
+    #editAccountSection input.form-control {
+        margin-bottom: 5px;
+    }
+
+.addGroupSpacer {
+    height: 30px;
+    line-height: 20px;
+    padding: 0px 3px;
+}
+
+.userManagement {
+    height: 270px;
+    line-height: 30px;
+}
+
+
+/*****************************************
+*   Budget content area
+*****************************************/
+#currentDate {
+    font-weight: bold;
+    line-height: 35px;
+    float: left;
+    padding: 0px 6px;
+    font-size: 16px;
+    margin-top:3px;
+    margin-bottom:3px;
+}
+
+.contentRow {
+    background-color: #FFFFFF;
+    width: 100%;
+    display: inline-block;
+    border-bottom: 1px solid #CCC;
+    float: left;
+    padding: 0px 3px 0px 10px;
+}
+
+.itemName {
+    font-family: Arial;
+    display: inline-block;
+    position: relative;
+    padding-left: 10px;
+    font-size: 13px;
+    text-decoration: none;
+    color: #1a1a1a;
+    padding-left: 40px;
+    max-width: calc(100% - 70px);
+}
+
+.itemItem a.itemName {
+    color: #fff;
+    font-size: 36px;
+    line-height: 48px;
+    padding: 26px 0px;
+    width: 100%;
+    text-decoration: none;
+}
+
+.menuHeader {
+    padding: 5px 3px;
+    color: #1a1a1a;
+    font-family: arial, sans-serif;
+    line-height: 18px;
+}
+
+.itemNameInput,
+.groupNameInput {
+    width: calc(100% - 148px);
+    margin-left: 0px;
+    float: left;
+    height: 35px;
+    margin:3px 0px;
+}
+
+.showEnter .itemNameInput,
+.showEnter .groupNameInput {
+    width: calc(100% - 179px);
+    margin-left: 6px;
+    background-color:#FFFFFF;
+}
+
+.groupNameInput {
+    font-weight: bold;
+    width: calc(100% - 9px);
+}
+.showEnter .groupNameInput {
+    width: calc(100% - 40px);
+}
+
+.itemSpentInput {
+    margin-right: 3px;
+    padding-left: 0px;
+}
+
+.itemBudgetedInput {
+    padding-left: 0px;
+}
+
+.rightColHeader {
+    float: right;
+    display: inline-block;
+    width: 64px;
+    margin-top: 15px;
+    margin-bottom: -4px;
+    height: 24px;
+    font-size: 12px;
+    line-height: 24px;
+    text-align: center;
+    border-left: 1px solid #FFF;
+    border-right: 1px solid #FFF;
+    border-top: 1px solid #FFF;
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+    background-color: #FFF;
+}
+
+.itemSpentHeader {
+    margin-top: 6px;
+    margin-bottom: 6px;
+    height: 23px;
+}
+.itemBudgetedHeader {
+    margin-top: 6px;
+    margin-bottom: 6px;
+    height: 23px;
+}
+
+.rightColInput {
+    width: 63px;
+    float: right;
+    text-align: right;
+    height: 35px;
+    margin:3px 0px;
+}
+
+.inputContainer {
+    border-left: 1px solid #cccccc;
+    display: inline-block;
+    float: right;
+    background-color: #FFF;
+    padding: 0px 2px;
+}
+
+.groupTotalRow {
+    font-weight: bold;
+}
+
+.groupTotalLabel {
+    float: right;
+    line-height: 35px;
+    margin: 3px 0px;
+    padding: 0px 6px;
+}
+
+.orderBtn {
+    float: left;
+    width: 34px;
+    padding: 6px 8px;
+    height: 35px;
+    line-height: 19px;
+    text-align: center;
+    cursor: pointer;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+#income {
+    width: 132px;
+    height: 35px;
+    text-align: right;
+    border: 2px solid #CCC;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.navigationContainer {
+
+}
+
+    .navigationContainer .btn:nth-child(2) {
+        margin: 0px 6px;
+    }
+
+.groupItem {
+    background-color: #cccbbc;
+}
+
+.addGroupRow {
+    display: none;
+    width: 100%;
+}
+
+.addItemRow {
+    display: none;
+}
+
+.showEnter .addGroupRow,
+.showEnter .addItemRow {
+    display: inline-block;
+}
+
+.addGroupInput,
+.addItemInput {
+    float: left;
+    margin-right: 6px;
+    height: 35px;
+    width: calc(100% - 179px);
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.addGroupInput {
+    font-weight: bold;
+    margin-left: 40px;
+}
+
+.addItemInput {
+    margin-left: 6px;
+}
+
+.addGroupBtn,
+.addItemBtn {
+    float: left;
+}
+
+.deleteItemBtn,
+.deleteGroupBtn {
+    display: none;
+    float: left;
+}
+
+.showEnter .deleteItemBtn,
+.showEnter .deleteGroupBtn {
+    display: inline-block;
+}
+
+.squareBtn {
+    width: 34px;
+    padding: 6px;
+    text-align: center;
+    line-height:1.5;
+    margin-top:3px;
+    margin-bottom:3px;
+}
+
+/*****************************************
+*   Bottom totals area
+*****************************************/
+.totalAmountContainer {
+    width: 130px;
+    float: right;
+    text-align: right;
+    font-size: 16px;
+}
+
+.totalAmountLabel {
+    width: 80px;
+    float: right;
+    text-align: left;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+#incomeTotal,
+#expensesTotal,
+#balanceTotal {
+    float: right;
+    text-align: right;
+    width: 90px;
+    padding-right: 40px;
+}

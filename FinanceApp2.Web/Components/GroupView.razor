@@ -1,0 +1,133 @@
+﻿@using FinanceApp2.Shared.Models
+@using FinanceApp2.Shared.Services.DTOs
+
+<div class="groupContainer">
+    <div class="groupItem contentRow bg-primary">
+        @if (IsEnterMode)
+        {
+            <span class="deleteGroupBtn btn btn-danger squareBtn" @onclick="DeleteGroupClicked">×</span>
+        }
+        <InputText class="groupNameInput form-control" placeholder="Group Name" @bind-Value="Group.GroupName" readonly="@(!IsEnterMode)" />
+        <input class="groupIdInput" type="hidden" value="@Group.GroupId" />
+    </div>
+
+    @if (Group.Items.Any(x => !x.IsDeleted))
+    {
+        foreach (var item in Group.Items.Where(x => !x.IsDeleted))
+        {
+            <ItemView @key="item.ItemId" IsEnterMode="IsEnterMode" OnChangeItem="HandleChangeItem" OnDeleteItem="HandleDeleteItem" Item="item" />
+        }
+    }
+    else
+    {
+        <div class="noItems contentRow">
+            <span class="itemName">No Items were found.</span>
+        </div>
+    }
+
+    @if (IsEnterMode)
+    {
+        <div class="addItemRow contentRow">
+            @if (!IsFirstGroup)
+            {
+                <div class="btn btn-primary orderBtn" @onclick="MoveUpGroupClicked">▲</div>
+            }
+            else
+            {
+                <div style="width: 34px; display: inline-block; float: left;">&nbsp;</div>
+            }
+            <InputText class="addItemInput form-control" @bind-Value="@NewItemName" placeholder="Add Item..." />
+            <span class="addItemBtn btn btn-success squareBtn" @onclick="HandleAddItem">+</span>
+        </div>
+    }
+
+    <div class="groupTotalRow contentRow">
+        <div class="groupTotalInput form-control rightColInput">@Group.GroupTotal</div>
+        <span class="groupTotalLabel">Total</span>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsEnterMode { get; set; }
+
+    [Parameter]
+    public bool IsFirstGroup { get; set; }
+
+    [Parameter]
+    public GroupDto Group { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<GroupDto> OnChangeTotal { get; set; }
+
+    [Parameter]
+    public EventCallback<GroupDto> OnDeleteGroup { get; set; }
+
+    [Parameter]
+    public EventCallback<GroupDto> OnMoveUpGroup { get; set; }
+
+    private string NewItemName { get; set; } = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        //clear the new item name field when edit mode is disabled
+        if (!IsEnterMode)
+        {
+            NewItemName = string.Empty;
+        }
+    }
+
+    private async Task DeleteGroupClicked()
+    {
+        if (OnDeleteGroup.HasDelegate)
+        {
+            await OnDeleteGroup.InvokeAsync(Group);
+        }
+    }
+
+    private async Task MoveUpGroupClicked()
+    {
+        if (OnMoveUpGroup.HasDelegate)
+        {
+            await OnMoveUpGroup.InvokeAsync(Group);
+        }
+    }
+
+    private async Task HandleChangeItem(ItemDto item)
+    {
+        item.ModifiedAt = DateTime.UtcNow;
+        if (OnChangeTotal.HasDelegate)
+        {
+            await OnChangeTotal.InvokeAsync();
+        }
+    }
+
+    private async Task HandleDeleteItem(ItemDto item)
+    {
+        item.IsDeleted = true;
+        item.ModifiedAt = DateTime.UtcNow;
+        if (OnChangeTotal.HasDelegate)
+        {
+            await OnChangeTotal.InvokeAsync();
+        }
+    }
+
+    private void HandleAddItem()
+    {
+        var now = DateTime.UtcNow;
+        ItemDto item = new ItemDto()
+        {
+            ItemId = Guid.NewGuid(),
+            ItemName = NewItemName,
+            GroupId = Group.GroupId,
+            CreatedAt = now,
+            ModifiedAt = now
+        };
+        Group.Items.Add(item);
+        Group.ModifiedAt = now;
+        NewItemName = string.Empty;
+
+        StateHasChanged();
+    }
+
+}
