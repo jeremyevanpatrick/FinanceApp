@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FinanceApp2.Shared.Models
+namespace FinanceApp2.Api.Models
 {
     public class Group
     {

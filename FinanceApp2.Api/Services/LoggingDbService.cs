@@ -4,12 +4,12 @@ using System.Threading.Channels;
 
 namespace FinanceApp2.Api.Services
 {
-    public class LoggingService
+    public class LoggingDbService
     {
         private readonly Channel<Error> _channel;
         private readonly IServiceProvider _serviceProvider;
 
-        public LoggingService(IServiceProvider serviceProvider)
+        public LoggingDbService(IServiceProvider serviceProvider)
         {
             _channel = Channel.CreateUnbounded<Error>();
             _serviceProvider = serviceProvider;

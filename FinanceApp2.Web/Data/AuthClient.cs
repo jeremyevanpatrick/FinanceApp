@@ -1,17 +1,18 @@
 ﻿using Blazored.SessionStorage;
-using FinanceApp2.Shared.Data;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
 using FinanceApp2.Shared.Services.Responses;
+using FinanceApp2.Web.Helpers;
 using FinanceApp2.Web.Services;
 using FinanceApp2.Web.Services.Requests;
 using FinanceApp2.Web.Settings;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Options;
 
 namespace FinanceApp2.Web.Data
 {
-    public class AuthClient : IAuthClient
+    public class AuthClient : BaseClient, IAuthClient
     {
         private readonly RequestHelper _requestHelperPublic;
         private readonly RequestHelper _requestHelperAuthenticated;
@@ -25,105 +26,118 @@ namespace FinanceApp2.Web.Data
             ISessionStorageService sessionStorage,
             AuthenticationStateProvider authStateProvider,
             IOptions<ApplicationSettings> applicationSettings,
-            ILogger<BudgetClient> logger)
+            ILogger<AuthClient> logger,
+            NavigationManager navigationManager,
+            NavigationMessageService navigationMessageService)
+            : base(logger, navigationManager, navigationMessageService)
         {
             _sessionStorage = sessionStorage;
             _authStateProvider = authStateProvider;
-            _requestHelperPublic = new RequestHelper(httpClientFactory.CreateClient("PublicApi"), logger);
-            _requestHelperAuthenticated = new RequestHelper(httpClientFactory.CreateClient("AuthenticatedApi"), logger);
+            _requestHelperPublic = new RequestHelper(httpClientFactory.CreateClient("PublicApi"));
+            _requestHelperAuthenticated = new RequestHelper(httpClientFactory.CreateClient("AuthenticatedApi"));
             _authBaseUrl = applicationSettings.Value.AuthBaseUrl;
         }
 
-        public async Task<AuthResponse> LoginAsync(string email, string password)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/login";
+        public Task<BaseResult> LoginAsync(string email, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/login";
 
-            LoginWebRequest request = new LoginWebRequest(email, password);
-            AuthResponse response = await _requestHelperPublic.PostRequestAsync<LoginWebRequest, AuthResponse>(requestUrl, request, null, 9000);
+                LoginWebRequest request = new LoginWebRequest(email, password);
+                AuthResponse response = await _requestHelperPublic.PostAsync<LoginWebRequest, AuthResponse>(requestUrl, request, true, 9000);
 
-            await _sessionStorage.SetItemAsync("authToken", response.Token);
-            await _sessionStorage.SetItemAsync("userId", response.UserId);
-            await _sessionStorage.SetItemAsync("userEmail", response.Email);
+                await _sessionStorage.SetItemAsync("jwt_token", response.AccessToken);
+                await _sessionStorage.SetItemAsync("user_id", response.UserId);
+                await _sessionStorage.SetItemAsync("user_email", response.Email);
 
-            ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(response.Token);
+                ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(response.AccessToken);
+            });
 
-            return response;
-        }
+        public Task<BaseResult> RegisterAsync(string email, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/register";
+                RegisterWebRequest request = new RegisterWebRequest(email, password);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task RegisterAsync(string email, string password)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/register";
-            RegisterWebRequest request = new RegisterWebRequest(email, password);
-            await _requestHelperPublic.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ResendConfirmationEmailAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/resendconfirmationemail";
+                ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ResendConfirmationEmailAsync(string email)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/resendconfirmationemail";
-            ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
-            await _requestHelperPublic.PostRequestNoResponseAsync<ResendConfirmationEmailRequest>(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ConfirmEmailAsync(string userId, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/confirmemail";
+                ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ConfirmEmailAsync(string userId, string token)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/confirmemail";
-            ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
-            await _requestHelperPublic.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ChangeEmailAsync(string newEmail, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/changeemail";
+                ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ChangeEmailAsync(string newEmail, string password)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/changeemail";
-            ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
-            await _requestHelperAuthenticated.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ChangeEmailConfirmationAsync(string userId, string newEmail, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/changeemailconfirmation";
+                ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ChangeEmailConfirmationAsync(string userId, string newEmail, string token)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/changeemailconfirmation";
-            ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
-            await _requestHelperPublic.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ChangePasswordAsync(string existingPassword, string newPassword) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/changepassword";
+                ChangePasswordRequest request = new ChangePasswordRequest(existingPassword, newPassword);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ChangePasswordAsync(string existingPassword, string newPassword)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/changepassword";
-            ChangePasswordRequest request = new ChangePasswordRequest(existingPassword, newPassword);
-            await _requestHelperAuthenticated.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ForgotPasswordAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/forgotpassword";
+                ForgotPasswordRequest request = new ForgotPasswordRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ForgotPasswordAsync(string email)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/forgotpassword";
-            ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-            await _requestHelperPublic.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> ResetPasswordAsync(string email, string resetCode, string newPassword) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/resetpassword";
+                ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task ResetPasswordAsync(string email, string resetCode, string newPassword)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/resetpassword";
-            ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
-            await _requestHelperPublic.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> DeleteAccountAsync(string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/delete";
+                DeleteAccountRequest request = new DeleteAccountRequest(password);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
 
-        public async Task DeleteAccountAsync(string password)
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/delete";
-            DeleteAccountRequest request = new DeleteAccountRequest(password);
-            await _requestHelperAuthenticated.PostRequestNoResponseAsync(requestUrl, request, null, 9000);
-        }
+        public Task<BaseResult> LogoutAsync() =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/auth/logout";
 
-        public async Task LogoutAsync()
-        {
-            string requestUrl = $"{_authBaseUrl}/auth/logout";
-            await _requestHelperAuthenticated.PostRequestNoResponseAsync<object>(requestUrl, new{ }, null, 9000);
+                await _requestHelperAuthenticated.PostAsync<object>(requestUrl, null, true, 9000);
 
-            await _sessionStorage.RemoveItemAsync("authToken");
-            await _sessionStorage.RemoveItemAsync("userId");
-            await _sessionStorage.RemoveItemAsync("userEmail");
+                await _sessionStorage.RemoveItemAsync("jwt_token");
+                await _sessionStorage.RemoveItemAsync("user_id");
+                await _sessionStorage.RemoveItemAsync("user_email");
 
-            ((CustomAuthStateProvider)_authStateProvider).NotifyUserLogout();
-        }
+                ((CustomAuthStateProvider)_authStateProvider).NotifyUserLogout();
+            });
 
         public async Task<bool> IsAuthenticatedAsync()
         {
@@ -133,12 +147,12 @@ namespace FinanceApp2.Web.Data
 
         public async Task<string> GetTokenAsync()
         {
-            return await _sessionStorage.GetItemAsync<string>("authToken");
+            return await _sessionStorage.GetItemAsync<string>("jwt_token");
         }
 
         public async Task<string> GetUserEmailAsync()
         {
-            return await _sessionStorage.GetItemAsync<string>("userEmail");
+            return await _sessionStorage.GetItemAsync<string>("user_email");
         }
     }
 }

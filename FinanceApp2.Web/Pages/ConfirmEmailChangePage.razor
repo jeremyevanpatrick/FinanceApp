@@ -1,7 +1,6 @@
 ﻿@page "/confirmemailchange"
-@using FinanceApp2.Shared.Data
-@using FinanceApp2.Web.Components
 @using FinanceApp2.Web.Data
+@using FinanceApp2.Web.Components
 @using FinanceApp2.Web.Helpers
 @using FinanceApp2.Web.Services
 @inject NavigationManager NavManager
@@ -15,7 +14,7 @@
 
 <div class="contentRow fs-5 p-2 text-center fw-bold" style="border-top: 1px solid #CCC;">Email Change Confirmation</div>
 
-<StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+<StatusMessagesView StatusMessages="statusMessageHelper?.StatusMessages" />
 
 @if (isLoading)
 {
@@ -63,21 +62,24 @@ else
     {
         statusMessageHelper = new StatusMessageHelper(() => InvokeAsync(StateHasChanged));
 
-        try
+        if (string.IsNullOrWhiteSpace(UserId) || string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Token))
         {
-            if (string.IsNullOrWhiteSpace(UserId) || string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Token))
-            {
-                statusMessageHelper.ShowError("Error loading page");
-            }
-            else
-            {
-                await AuthService.ChangeEmailConfirmationAsync(UserId, Email, Token);
-                isConfirmationSuccess = true;
-            }
+            statusMessageHelper.ShowError("Error loading page");
         }
-        catch (Exception ex)
+        else
         {
-            isConfirmationSuccess = false;
+            await AuthService.ChangeEmailConfirmationAsync(UserId, Email, Token)
+            .HandleAsync(
+                onSuccess: () =>
+                {
+                    isConfirmationSuccess = true;
+                    statusMessageHelper.ClearStatuses();
+                },
+                onError: (string errorString) => {
+                    isConfirmationSuccess = false;
+                    statusMessageHelper.ShowError(errorString);
+                }
+            );
         }
         isLoading = false;
         StateHasChanged();

@@ -8,9 +8,9 @@ namespace FinanceApp2.Api.Controllers
     [Route("[controller]")]
     public class LogsController : ControllerBase
     {
-        private readonly LoggingService _loggingService;
+        private readonly LoggingDbService _loggingService;
 
-        public LogsController(LoggingService loggingService)
+        public LogsController(LoggingDbService loggingService)
         {
             _loggingService = loggingService;
         }

@@ -1,12 +1,12 @@
 ﻿@page "/"
 @page "/budgets"
-@using FinanceApp2.Shared.Data
 @using FinanceApp2.Shared.Models
 @using FinanceApp2.Shared.Services
 @using FinanceApp2.Shared.Services.DTOs
 @using FinanceApp2.Web.Data
 @using FinanceApp2.Web.Components
 @using FinanceApp2.Web.Helpers
+@using FinanceApp2.Web.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
@@ -23,11 +23,11 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-body">
-                    <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+                    <StatusMessagesView StatusMessages="statusMessageHelper?.StatusMessages" />
                     Are you sure you want to delete the @(GetMonthYearDisplay()) budget?
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="() => showConfirmDeleteBudget = false">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="() => { showConfirmDeleteBudget = false; statusMessageHelper?.ClearStatuses(); }">Cancel</button>
                     <ButtonWithSpinner
                         OnClickAsync="ConfirmDeleteBudgetClicked"
                         class="btn btn-danger">
@@ -68,7 +68,7 @@
     
     @if (!showConfirmDeleteBudget)
     {
-        <StatusMessagesView StatusMessages="statusMessageHelper.StatusMessages" />
+        <StatusMessagesView StatusMessages="statusMessageHelper?.StatusMessages" />
     }
 
     <div class="navigationContainer contentRow bg-light">
@@ -179,9 +179,9 @@
             <div class="navigationContainer contentRow bg-light">
                 @if (budgetContainer.HasPreviousMonth)
                 {
-                    <a class="btn btn-success float-start" @onclick="() => OnCreateBudget(currentBudgetDate, previousBudgetDate)">+ Duplicate Previous</a>
+                    <a class="btn btn-success float-start mt-2 mb-2" @onclick="() => OnCreateBudget(currentBudgetDate, previousBudgetDate)">+ Duplicate Previous</a>
                 }
-                <a class="btn btn-success float-start" @onclick="() => OnCreateBudget(currentBudgetDate)">+ Create Budget</a>
+                <a class="btn btn-success float-start mt-2 mb-2" @onclick="() => OnCreateBudget(currentBudgetDate)">+ Create Budget</a>
             </div>
             <div class="contentRow">
                 <span class="itemName">Create a budget to get started.</span>
@@ -198,3 +198,250 @@
         </div>
     }
 </div>
+
+@code{
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? Month { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? Year { get; set; }
+
+    private BudgetContainer budgetContainer = new BudgetContainer();
+    private List<GroupDto> orderedGroups => budgetContainer?.Budget?.Groups
+        .Where(g => !g.IsDeleted)
+        .OrderBy(g => g.Order)
+        .ToList() ?? new List<GroupDto>();
+
+    private DateOnly currentBudgetDate = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateOnly previousBudgetDate
+    {
+        get
+        {
+            return currentBudgetDate.AddMonths(-1);
+        }
+    }
+    private DateOnly nextBudgetDate
+    {
+        get
+        {
+            return currentBudgetDate.AddMonths(1);
+        }
+    }
+
+    private bool isInitialBudgetLoaded = false;
+    private bool isEnterMode = false;
+    private bool showConfirmDeleteBudget = false;
+    private string newGroupName = "";
+
+    private StatusMessageHelper statusMessageHelper = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!(authState.User.Identity?.IsAuthenticated ?? false))
+        {
+            NavManager.NavigateTo("/login");
+            return;
+        }
+
+        statusMessageHelper = new StatusMessageHelper(() => InvokeAsync(StateHasChanged));
+        statusMessageHelper.ShowStatuses(await MessageService.ConsumeAll());
+
+        if (Month != null && Month > 0 && Month < 13 &&
+            Year != null && Year > 0 && Year < 10000)
+        {
+            currentBudgetDate = new DateOnly((int)Year, (int)Month, 1);
+        }
+
+        await LoadBudget();
+        StateHasChanged();
+    }
+
+    private async Task LoadBudget()
+    {
+        isInitialBudgetLoaded = false;
+
+        await BudgetClient.GetBudgetAsync(currentBudgetDate.Month, currentBudgetDate.Year)
+        .HandleAsync<BudgetContainer?>(
+            onSuccess: (BudgetContainer? result) =>
+            {
+                budgetContainer = result ?? new BudgetContainer();
+                isInitialBudgetLoaded = true;
+                statusMessageHelper.ClearStatuses();
+                StateHasChanged();
+            },
+            onError: (string errorString) => { statusMessageHelper.ShowError(errorString); }
+        );
+    }
+
+    private void HandleUpdateCalculation()
+    {
+        StateHasChanged();
+    }
+
+    private void HandleDeleteGroup(GroupDto group)
+    {
+        group.IsDeleted = true;
+        group.ModifiedAt = DateTime.UtcNow;
+        StateHasChanged();
+    }
+
+    private void HandleMoveUpGroup(GroupDto group)
+    {
+        if (budgetContainer.Budget != null)
+        {
+            //swap the position of the current group with the position of the preceding group
+            int movingGroupOrder = group.Order;
+            GroupDto precedingGroup = budgetContainer.Budget.Groups.OrderBy(x => x.Order).Last(x => x.Order < group.Order);
+            group.Order = precedingGroup.Order;
+            precedingGroup.Order = movingGroupOrder;
+            group.ModifiedAt = DateTime.UtcNow;
+            precedingGroup.ModifiedAt = DateTime.UtcNow;
+            StateHasChanged();
+        }
+    }
+
+    private string GetMonthYearDisplay()
+    {
+        return currentBudgetDate.ToString("MMMM yyyy");
+    }
+
+    private void NavigateToPreviousMonth()
+    {
+        DisableEnterMode();
+        NavManager.NavigateTo($"/budgets?month={previousBudgetDate.Month}&year={previousBudgetDate.Year}");
+    }
+
+    private void NavigateToNextMonth()
+    {
+        DisableEnterMode();
+        NavManager.NavigateTo($"/budgets?month={nextBudgetDate.Month}&year={nextBudgetDate.Year}");
+    }
+
+    private void EnableEnterMode()
+    {
+        isEnterMode = true;
+    }
+
+    private void DisableEnterMode()
+    {
+        isEnterMode = false;
+        newGroupName = string.Empty;
+    }
+
+    private async Task OnSaveChanges()
+    {
+        if (budgetContainer.Budget == null)
+        {
+            DisableEnterMode();
+            return;
+        }
+
+        budgetContainer.Budget.ModifiedAt = DateTime.UtcNow;
+
+        await BudgetClient.UpdateBudgetAsync(budgetContainer.Budget)
+        .HandleAsync(
+            onSuccess: () =>
+            {
+                statusMessageHelper.ShowSuccess("Budget successfully updated.");
+                DisableEnterMode();
+                statusMessageHelper.ClearStatuses();
+            },
+            onError: (string errorString) => { statusMessageHelper.ShowError(errorString); }
+        );
+    }
+
+    private async Task OnCancelEdit()
+    {
+        DisableEnterMode();
+        statusMessageHelper.ClearStatuses();
+        await LoadBudget();
+    }
+
+    private void HandleAddGroup()
+    {
+        if (budgetContainer.Budget != null && !string.IsNullOrWhiteSpace(newGroupName))
+        {
+            int newOrder = orderedGroups.LastOrDefault()?.Order + 1 ?? 1;
+            var now = DateTime.UtcNow;
+            var newGroup = new GroupDto
+            {
+                GroupId = Guid.NewGuid(),
+                GroupName = newGroupName,
+                BudgetId = budgetContainer.Budget.BudgetId,
+                Order = newOrder,
+                CreatedAt = now,
+                ModifiedAt = now
+            };
+
+            budgetContainer.Budget.Groups.Add(newGroup);
+            newGroupName = string.Empty;
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmDeleteBudgetClicked()
+    {
+        if (budgetContainer.Budget == null)
+        {
+            showConfirmDeleteBudget = false;
+            DisableEnterMode();
+            await LoadBudget();
+            return;
+        }
+
+        bool isSuccess = false;
+
+        await BudgetClient.DeleteBudgetAsync(budgetContainer.Budget.BudgetId)
+        .HandleAsync(
+            onSuccess: () =>
+            {
+                isSuccess = true;
+            },
+            onError: (string errorString) => { statusMessageHelper.ShowError(errorString); }
+        );
+
+        if (isSuccess)
+        {
+            statusMessageHelper.ShowSuccess("Budget successfully deleted.");
+            showConfirmDeleteBudget = false;
+            DisableEnterMode();
+            await LoadBudget();
+        }
+
+    }
+
+    private async Task OnCreateBudget(DateOnly newBudgetDate, DateOnly? sourceBudgetDate = null)
+    {
+        bool isSuccess = false;
+
+        await BudgetClient.CreateBudgetAsync(newBudgetDate, sourceBudgetDate)
+        .HandleAsync(
+            onSuccess: () => { isSuccess = true; },
+            onError: (string errorString) => { statusMessageHelper.ShowError(errorString); }
+        );
+
+        if (isSuccess)
+        {
+            string successMessage = "Budget created successfully!";
+            if (currentBudgetDate == newBudgetDate)
+            {
+                statusMessageHelper.ShowSuccess(successMessage);
+                await LoadBudget();
+            }
+            else
+            {
+                MessageService.AddSuccess("Budget created successfully!");
+                NavManager.NavigateTo($"/budgets?month={newBudgetDate.Month}&year={newBudgetDate.Year}");
+            }
+        }
+    }
+
+    private async Task OnEditAccount()
+    {
+        NavManager.NavigateTo("/account");
+    }
+}

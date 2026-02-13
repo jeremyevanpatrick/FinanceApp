@@ -6,7 +6,7 @@ namespace FinanceApp2.Web.Helpers
     {
         private readonly Func<Task> _onStateChanged;
 
-        public List<(string, UIStatus)> StatusMessages = new List<(string, UIStatus)>();
+        public List<UIStatusMessage> StatusMessages = new List<UIStatusMessage>();
 
         public StatusMessageHelper(Func<Task> onStateChanged)
         {
@@ -15,26 +15,27 @@ namespace FinanceApp2.Web.Helpers
 
         public void ShowSuccess(string message)
         {
-            ShowStatuses(new List<(string, UIStatus)> { (message, UIStatus.Success) });
+            ShowStatuses(new List<UIStatusMessage> { new UIStatusMessage(message, UIStatus.Success) });
         }
 
         public void ShowError(string message)
         {
-            ShowStatuses(new List<(string, UIStatus)> { (message, UIStatus.Error) });
+            ShowStatuses(new List<UIStatusMessage> { new UIStatusMessage(message, UIStatus.Error) });
         }
 
         public void ShowInfo(string message)
         {
-            ShowStatuses(new List<(string, UIStatus)> { (message, UIStatus.Information) });
+            ShowStatuses(new List<UIStatusMessage> { new UIStatusMessage(message, UIStatus.Information) });
         }
 
-        public async void ShowStatuses(List<(string, UIStatus)> messages)
+        public async void ShowStatuses(List<UIStatusMessage> messages)
         {
             StatusMessages = messages;
             await _onStateChanged();
+        }
 
-            await Task.Delay(3000);
-
+        public async void ClearStatuses()
+        {
             StatusMessages.Clear();
             await _onStateChanged();
         }

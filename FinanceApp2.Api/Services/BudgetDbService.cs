@@ -1,14 +1,14 @@
 ﻿using FinanceApp2.Api.Data;
-using FinanceApp2.Shared.Models;
+using FinanceApp2.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanceApp2.Api.Services
 {
-    public class BudgetService : IBudgetService
+    public class BudgetDbService : IBudgetDbService
     {
         private readonly AppDbContext _db;
 
-        public BudgetService(AppDbContext db)
+        public BudgetDbService(AppDbContext db)
         {
             _db = db;
         }
@@ -25,14 +25,14 @@ namespace FinanceApp2.Api.Services
                     !b.IsDeleted);
         }
 
-        public async Task<Budget?> GetById(Guid budgetId)
+        public async Task<Budget?> GetById(Guid budgetId, bool includeDeleted = false)
         {
             return await _db.Budgets
-                .Include(b => b.Groups.Where(g => !g.IsDeleted).OrderBy(g => g.Order))
-                    .ThenInclude(g => g.Items.Where(i => !i.IsDeleted).OrderBy(i => i.CreatedAt))
+                .Include(b => b.Groups.Where(g => includeDeleted || !g.IsDeleted).OrderBy(g => g.Order))
+                    .ThenInclude(g => g.Items.Where(i => includeDeleted || !i.IsDeleted).OrderBy(i => i.CreatedAt))
                 .FirstOrDefaultAsync(b =>
                     b.BudgetId == budgetId &&
-                    !b.IsDeleted);
+                    (includeDeleted || !b.IsDeleted));
         }
 
         public async Task<bool> GetExistsByDate(Guid userId, int month, int year)
@@ -107,5 +107,26 @@ namespace FinanceApp2.Api.Services
             await _db.SaveChangesAsync();
         }
 
+        public async Task DeleteUserDataAsync(Guid userId)
+        {
+            await _db.Budgets
+                .Where(b => b.UserId == userId)
+                .ExecuteDeleteAsync();
+        }
+
+        public async Task CleanupSoftDeletedUserDataAsync(int olderThanDays = 0)
+        {
+            await _db.Budgets
+                .Where(b => b.IsDeleted && b.ModifiedAt < DateTime.UtcNow.AddDays(-olderThanDays))
+                .ExecuteDeleteAsync();
+
+            await _db.Groups
+                .Where(g => g.IsDeleted && g.ModifiedAt < DateTime.UtcNow.AddDays(-olderThanDays))
+                .ExecuteDeleteAsync();
+
+            await _db.Items
+                .Where(i => i.IsDeleted && i.ModifiedAt < DateTime.UtcNow.AddDays(-olderThanDays))
+                .ExecuteDeleteAsync();
+        }
     }
 }

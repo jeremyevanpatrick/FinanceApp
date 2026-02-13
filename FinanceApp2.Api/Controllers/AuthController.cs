@@ -1,4 +1,6 @@
-﻿using FinanceApp2.Api.Models;
+﻿using FinanceApp2.Api.Helpers;
+using FinanceApp2.Api.Models;
+using FinanceApp2.Api.Services;
 using FinanceApp2.Api.Settings;
 using FinanceApp2.Shared.Helpers;
 using FinanceApp2.Shared.Services.Requests;
@@ -14,24 +16,34 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace FinanceApp2.Api.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController : ControllerBaseExtended
     {
         private readonly ILogger<AuthController> _logger;
+        private readonly IAuthDbService _authDbService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ClientSettings _clientSettings;
         private readonly JwtSettings _jwtSettings;
         private readonly IEmailSender _emailSender;
 
-        public AuthController(ILogger<AuthController> logger, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IOptions<ClientSettings> clientSettings, IOptions<JwtSettings> jwtSettings, IEmailSender emailSender)
+        public AuthController(
+            ILogger<AuthController> logger,
+            IAuthDbService authDbService,
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            IOptions<ClientSettings> clientSettings,
+            IOptions<JwtSettings> jwtSettings,
+            IEmailSender emailSender)
         {
             _logger = logger;
+            _authDbService = authDbService;
             _userManager = userManager;
             _signInManager = signInManager;
             _clientSettings = clientSettings.Value;
@@ -39,6 +51,7 @@ namespace FinanceApp2.Api.Controllers
             _emailSender = emailSender;
         }
 
+        [EnableRateLimiting("public-messaging-endpoints")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -54,22 +67,21 @@ namespace FinanceApp2.Api.Controllers
 
                 if (!result.Succeeded)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00009", null, "Registration failed", new Dictionary<string, string> { });
-                    return BadRequest(new { message = "Registration failed" });
-                }
-                else
-                {
-                    await SendEmailConfirmationEmail(user);
-
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        return Problem400("Password does not meet requirements.", ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
                     return Ok();
                 }
+
+                await SendEmailConfirmationEmail(user);
+                return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00008", ex, "Registration failed", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.RegisterUnexpected, ex, "Unexpected error during user registration", new Dictionary<string, string> { });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Registration failed");
         }
 
         [EnableRateLimiting("public-messaging-endpoints")]
@@ -100,10 +112,9 @@ namespace FinanceApp2.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00010", ex, "Resend confirmation email failed", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ResendConfirmationEmailUnexpected, ex, "Unexpected error while resending confirmation email", new Dictionary<string, string> { });
+                return Ok();
             }
-
-            return Ok();
         }
 
         private async Task SendEmailConfirmationEmail(ApplicationUser user)
@@ -122,24 +133,25 @@ namespace FinanceApp2.Api.Controllers
                 var user = await _userManager.FindByIdAsync(request.UserId);
                 if (user == null)
                 {
-                    return Problem("Unable to confirm email");
+                    return Problem400("Invalid or expired confirmation link.", ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
 
                 string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
 
                 IdentityResult result = await _userManager.ConfirmEmailAsync(user, decodedToken);
 
-                if (result.Succeeded)
+                if (!result.Succeeded)
                 {
-                    return Ok();
+                    return Problem400("Invalid or expired confirmation link.", ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
+
+                return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00011", ex, "Email confirmation failed", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ConfirmEmailUnexpected, ex, "Unexpected error while confirming email", new Dictionary<string, string> { });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to confirm email");
         }
 
         [HttpPost("login")]
@@ -150,7 +162,7 @@ namespace FinanceApp2.Api.Controllers
                 var user = await _userManager.FindByEmailAsync(request.Email);
                 if (user == null)
                 {
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    return Problem401("Invalid credentials", ResponseErrorCodes.INVALID_CREDENTIALS);
                 }
 
                 var result = await _signInManager.CheckPasswordSignInAsync(
@@ -158,25 +170,49 @@ namespace FinanceApp2.Api.Controllers
                     request.Password,
                     lockoutOnFailure: true);
 
-                if (result.Succeeded)
+                if (!result.Succeeded)
                 {
-                    var token = GenerateJwtToken(user);
-
-                    return Ok(new AuthResponse
+                    if (result.IsLockedOut)
                     {
-                        Token = token,
-                        UserId = user.Id,
-                        Email = user.Email,
-                        ExpiresAt = DateTime.UtcNow.AddDays(30)
-                    });
+                        var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+                        var minutesRemaining = (int)(lockoutEnd.Value - DateTimeOffset.UtcNow).TotalMinutes;
+                        return Problem401($"Account is locked. Please try again in {minutesRemaining} minutes.", ResponseErrorCodes.ACCOUNT_LOCKED);
+                    }
+                    return Problem401("Invalid credentials", ResponseErrorCodes.INVALID_CREDENTIALS);
                 }
+
+                var refreshTokenString = GenerateRefreshToken();
+                await _authDbService.AddRefreshTokenAsync(new RefreshToken
+                {
+                    TokenHash = TokenHashHelper.Hash(refreshTokenString),
+                    UserId = user.Id,
+                    ExpiresAt = DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                Response.Cookies.Append("refresh_token", refreshTokenString, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
+                    Expires = DateTime.UtcNow.AddDays(30)
+                });
+
+                var accessToken = GenerateJwtToken(user);
+
+                return Ok(new AuthResponse
+                {
+                    AccessToken = accessToken,
+                    UserId = user.Id,
+                    Email = user.Email,
+                    AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00012", ex, "Unexpected error during login", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.LoginUnexpected, ex, "Unexpected error during user login", new Dictionary<string, string> { });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Unauthorized(new { message = "Invalid credentials" });
         }
 
         [EnableRateLimiting("public-messaging-endpoints")]
@@ -200,10 +236,9 @@ namespace FinanceApp2.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00020", ex, "Unexpected error changing password", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ForgotPasswordUnexpected, ex, "Unexpected error while sending reset password email", new Dictionary<string, string> { });
+                return Ok();
             }
-
-            return Ok();
         }
 
         [HttpPost("resetpassword")]
@@ -214,7 +249,7 @@ namespace FinanceApp2.Api.Controllers
                 var user = await _userManager.FindByEmailAsync(request.Email);
                 if (user == null)
                 {
-                    return Ok();
+                    return Problem400("Invalid or expired reset link.", ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
 
                 var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.ResetCode));
@@ -222,68 +257,96 @@ namespace FinanceApp2.Api.Controllers
                 var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
                 if (!result.Succeeded)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00022", null, "Reset password failed", new Dictionary<string, string> {
-                        { "Description", string.Join(", ", result.Errors.Select(e => e.Description)) }
-                    });
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        return Problem400("Password does not meet requirements.", ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
+
+                    return Problem400("Invalid or expired reset link.", ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00021", ex, "Unexpected error resetting password", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ResetPasswordUnexpected, ex, "Unexpected error while resetting password", new Dictionary<string, string> { });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Reset password failed");
         }
 
         [HttpPost("changepassword")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
+            string userId = string.Empty;
+
             try
             {
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return NotFound();
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
                 }
+
+                userId = user.Id;
 
                 IdentityResult result = await _userManager.ChangePasswordAsync(user, request.ExistingPassword, request.NewPassword);
                 if (!result.Succeeded)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00014", null, "Change password failed", new Dictionary<string, string> {
+                    if (result.Errors.Any(e => e.Code == "PasswordMismatch"))
+                    {
+                        return Problem400("Invalid credentials", ResponseErrorCodes.INVALID_CREDENTIALS);
+                    }
+
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        return Problem400("New password does not meet requirements.", ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
+
+                    _logger.LogErrorWithDictionary(AuthErrorCodes.ChangePasswordFailed, null, "Change password failed unexpectedly", new Dictionary<string, string> {
                         { "Description", string.Join(", ", result.Errors.Select(e => e.Description)) }
                     });
-                    return BadRequest(new { message = "Change password failed" });
+                    return Problem("Change password failed unexpectedly. Please try again later.");
                 }
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00013", ex, "Unexpected error changing password", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ChangePasswordUnexpected, ex, "Unexpected error while changing password", new Dictionary<string, string>
+                {
+                    { "UserId", userId }
+                });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to change password");
         }
 
         [HttpPost("changeemail")]
         [Authorize]
         public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailRequest request)
         {
+            string userId = string.Empty;
+
             try
             {
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return NotFound();
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
                 }
+
+                userId = user.Id;
 
                 var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
                 if (!passwordValid)
                 {
-                    return BadRequest(new { message = "Invalid credentials" });
+                    return Problem400("Invalid credentials", ResponseErrorCodes.INVALID_CREDENTIALS);
+                }
+
+                var existingUser = await _userManager.FindByEmailAsync(request.NewEmail);
+                if (existingUser != null)
+                {
+                    return Problem400("Email address is already in use.", ResponseErrorCodes.EMAIL_ADDRESS_ALREADY_IN_USE);
                 }
 
                 string token = await _userManager.GenerateChangeEmailTokenAsync(user, request.NewEmail);
@@ -295,74 +358,109 @@ namespace FinanceApp2.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00015", ex, "Unexpected error changing email", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ChangeEmailUnexpected, ex, "Unexpected error while sending change email message", new Dictionary<string, string>
+                {
+                    { "UserId", userId }
+                });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to change email");
         }
 
         [HttpPost("changeemailconfirmation")]
         public async Task<IActionResult> ChangeEmailConfirmation([FromBody] ChangeEmailConfirmationRequest request)
         {
+            string userId = string.Empty;
+
             try
             {
                 var user = await _userManager.FindByIdAsync(request.UserId);
                 if (user == null)
                 {
-                    return BadRequest(new { message = "Confirm email change failed" });
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
                 }
+
+                userId = user.Id;
 
                 string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
 
                 var result = await _userManager.ChangeEmailAsync(user, request.NewEmail, decodedToken);
                 if (!result.Succeeded)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00017", null, "Confirm email change failed", new Dictionary<string, string> {
-                        { "Description", string.Join(", ", result.Errors.Select(e => e.Description)) }
-                    });
-                    return BadRequest(new { message = "Confirm email change failed" });
+                    return Problem400("Invalid or expired change email link.", ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00016", ex, "Unexpected error confirming email change", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.ChangeEmailConfirmationUnexpected, ex, "Unexpected error while confirming email change", new Dictionary<string, string>
+                {
+                    { "UserId", userId }
+                });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Confirm email change failed");
         }
 
         [HttpPost("refresh")]
-        [Authorize]
         public async Task<IActionResult> RefreshToken()
         {
+            string userId = string.Empty;
+
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var user = await _userManager.FindByIdAsync(userId);
-
-                if (user == null)
+                var refreshTokenString = Request.Cookies["refresh_token"];
+                if (string.IsNullOrWhiteSpace(refreshTokenString))
                 {
-                    return Unauthorized();
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
                 }
 
-                var token = GenerateJwtToken(user);
+                RefreshToken? refreshToken = await _authDbService.GetRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
+                if (refreshToken == null)
+                {
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
+                }
+
+                userId = refreshToken.UserId;
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
+                }
+
+                var newRefreshTokenString = GenerateRefreshToken();
+                await _authDbService.AddRefreshTokenAsync(new RefreshToken
+                {
+                    TokenHash = TokenHashHelper.Hash(newRefreshTokenString),
+                    UserId = user.Id,
+                    ExpiresAt = DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _authDbService.RevokeRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
+
+                Response.Cookies.Append("refresh_token", newRefreshTokenString, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
+                    Expires = DateTime.UtcNow.AddDays(30)
+                });
+
+                var accessToken = GenerateJwtToken(user);
 
                 return Ok(new AuthResponse
                 {
-                    Token = token,
-                    UserId = user.Id,
-                    Email = user.Email,
-                    ExpiresAt = DateTime.UtcNow.AddDays(30)
+                    AccessToken = accessToken,
+                    AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00024", ex, "Unexpected error refreshing token", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.RefreshTokenUnexpected, ex, "Unexpected error while refreshing token", new Dictionary<string, string>
+                {
+                    { "UserId", userId }
+                });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Refresh token failed");
         }
 
         [HttpPost("logout")]
@@ -371,33 +469,44 @@ namespace FinanceApp2.Api.Controllers
         {
             try
             {
-                await _signInManager.SignOutAsync();
+                var refreshTokenString = Request.Cookies["refresh_token"];
+                if (string.IsNullOrWhiteSpace(refreshTokenString))
+                {
+                    return Ok();
+                }
+
+                await _authDbService.RevokeRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
+                Response.Cookies.Delete("refresh_token");
+
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00023", ex, "Unexpected error signing out", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.LogoutUnexpected, ex, "Unexpected error while signing out", new Dictionary<string, string> { });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Logout failed");
         }
 
         [HttpPost("delete")]
         [Authorize]
         public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
         {
+            string userId = string.Empty;
+
             try
             {
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return NotFound("User not found");
+                    return Problem401("Authentication is no longer valid.", ResponseErrorCodes.AUTH_NO_LONGER_VALID);
                 }
+
+                userId = user.Id;
 
                 var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
                 if (!passwordValid)
                 {
-                    return BadRequest(new { message = "Invalid credentials" });
+                    return Problem400("Invalid credentials", ResponseErrorCodes.INVALID_CREDENTIALS);
                 }
 
                 user.IsDeleted = true;
@@ -406,23 +515,24 @@ namespace FinanceApp2.Api.Controllers
                 var result = await _userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00019", null, "Delete account failed", new Dictionary<string, string> {
+                    _logger.LogErrorWithDictionary(AuthErrorCodes.DeleteAccountFailed, null, "Delete account failed unexpectedly", new Dictionary<string, string> {
                         { "Description", string.Join(", ", result.Errors.Select(e => e.Description)) }
                     });
-                    return BadRequest(new { message = "Delete account failed" });
+                    return Problem("Delete account failed unexpectedly. Please try again later.");
                 }
 
-                await _userManager.UpdateSecurityStampAsync(user);
-                await _signInManager.SignOutAsync();
+                await _authDbService.RevokeAllUserRefreshTokensAsync(userId);
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00018", ex, "Unexpected error deleting account", new Dictionary<string, string> { });
+                _logger.LogErrorWithDictionary(AuthErrorCodes.DeleteAccountUnexpected, ex, "Unexpected error while deleting account", new Dictionary<string, string>
+                {
+                    { "UserId", userId }
+                });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Delete account failed");
         }
 
         private string GenerateJwtToken(ApplicationUser user)
@@ -447,5 +557,14 @@ namespace FinanceApp2.Api.Controllers
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        private string GenerateRefreshToken()
+        {
+            var randomBytes = new byte[64];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
+            return Convert.ToBase64String(randomBytes);
+        }
+
     }
 }

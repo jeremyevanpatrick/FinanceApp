@@ -1,64 +1,75 @@
-﻿using FinanceApp2.Shared.Data;
-using FinanceApp2.Shared.Helpers;
-using FinanceApp2.Shared.Services.DTOs;
+﻿using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
+using FinanceApp2.Web.Helpers;
+using FinanceApp2.Web.Services;
 using FinanceApp2.Web.Settings;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Options;
 
 namespace FinanceApp2.Web.Data
 {
-    public class BudgetClient : IBudgetClient
+    public class BudgetClient : BaseClient, IBudgetClient
     {
         private readonly RequestHelper _requestHelper;
         private readonly string _apiBaseUrl;
 
-        public BudgetClient(IOptions<ApplicationSettings> applicationSettings, IHttpClientFactory httpClientFactory, ILogger<BudgetClient> logger)
+        public BudgetClient(
+            IOptions<ApplicationSettings> applicationSettings,
+            IHttpClientFactory httpClientFactory,
+            ILogger<BudgetClient> logger,
+            NavigationManager navigationManager,
+            NavigationMessageService navigationMessageService)
+            : base(logger, navigationManager, navigationMessageService)
         {
-            _requestHelper = new RequestHelper(httpClientFactory.CreateClient("AuthenticatedApi"), logger);
+            _requestHelper = new RequestHelper(httpClientFactory.CreateClient("AuthenticatedApi"));
             _apiBaseUrl = applicationSettings.Value.ApiBaseUrl;
         }
 
-        public async Task<BudgetContainer> GetBudgetAsync(int month, int year)
-        {
-            string requestUrl = $"{_apiBaseUrl}/budgets/getbydate?month={month}&year={year}";
-
-            return await _requestHelper.GetRequestAsync<BudgetContainer>(requestUrl, null, 9000);
-        }
-
-        public async Task CreateBudgetAsync(DateOnly newBudgetDate, DateOnly? sourceBudgetDate = null)
-        {
-            string requestUrl = $"{_apiBaseUrl}/budgets/create";
-
-            CreateBudgetRequest request = new CreateBudgetRequest()
+        public Task<BaseResult<BudgetContainer?>> GetBudgetAsync(int month, int year) =>
+            ExecuteAsync(async () =>
             {
-                NewBudgetMonth = newBudgetDate.Month,
-                NewBudgetYear = newBudgetDate.Year,
-                SourceBudgetMonth = sourceBudgetDate?.Month,
-                SourceBudgetYear = sourceBudgetDate?.Year
-            };
-            await _requestHelper.PostRequestNoResponseAsync<CreateBudgetRequest>(requestUrl, request, null, 9000);
-        }
+                string requestUrl = $"{_apiBaseUrl}/budgets/getbydate?month={month}&year={year}";
 
-        public async Task UpdateBudgetAsync(BudgetDto budget)
-        {
-            string requestUrl = $"{_apiBaseUrl}/budgets/update";
+                return await _requestHelper.GetAsync<BudgetContainer>(requestUrl, false, 9000);
+            });
 
-            UpdateBudgetRequest request = new UpdateBudgetRequest()
+        public Task<BaseResult> CreateBudgetAsync(DateOnly newBudgetDate, DateOnly? sourceBudgetDate = null) =>
+            ExecuteAsync(async () =>
             {
-                Budget = budget
-            };
-            await _requestHelper.PostRequestNoResponseAsync<UpdateBudgetRequest>(requestUrl, request, null, 9000);
-        }
+                string requestUrl = $"{_apiBaseUrl}/budgets/create";
 
-        public async Task DeleteBudgetAsync(Guid budgetId)
-        {
-            string requestUrl = $"{_apiBaseUrl}/budgets/delete";
+                CreateBudgetRequest request = new CreateBudgetRequest()
+                {
+                    NewBudgetMonth = newBudgetDate.Month,
+                    NewBudgetYear = newBudgetDate.Year,
+                    SourceBudgetMonth = sourceBudgetDate?.Month,
+                    SourceBudgetYear = sourceBudgetDate?.Year
+                };
+                await _requestHelper.PostAsync<CreateBudgetRequest>(requestUrl, request, false, 9000);
+            });
 
-            DeleteBudgetRequest request = new DeleteBudgetRequest()
+        public Task<BaseResult> UpdateBudgetAsync(BudgetDto budget) =>
+            ExecuteAsync(async () =>
             {
-                BudgetId = budgetId
-            };
-            await _requestHelper.PostRequestNoResponseAsync<DeleteBudgetRequest>(requestUrl, request, null, 9000);
-        }
+                string requestUrl = $"{_apiBaseUrl}/budgets/update";
+
+                UpdateBudgetRequest request = new UpdateBudgetRequest()
+                {
+                    Budget = budget
+                };
+                await _requestHelper.PostAsync<UpdateBudgetRequest>(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> DeleteBudgetAsync(Guid budgetId) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_apiBaseUrl}/budgets/delete";
+
+                DeleteBudgetRequest request = new DeleteBudgetRequest()
+                {
+                    BudgetId = budgetId
+                };
+                await _requestHelper.PostAsync<DeleteBudgetRequest>(requestUrl, request, false, 9000);
+            });
     }
 }

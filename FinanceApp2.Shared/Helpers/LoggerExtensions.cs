@@ -4,12 +4,17 @@ namespace FinanceApp2.Shared.Helpers
 {
     public static class LoggerExtensions
     {
-        public static void LogErrorWithDictionary(this ILogger logger, string errorCode, Exception? ex, string message, Dictionary<string, string> dictionary)
+        public static void LogErrorWithDictionary(this ILogger logger, string errorCode, Exception? ex, string message, Dictionary<string, string>? dictionary = null)
         {
             EventId eventId = GetEventIdFromErrorCode(errorCode);
-            logger.LogError(eventId, ex, message + ": " + GetDictionaryAsString(dictionary));
+            string detailString = string.Empty;
+            if (dictionary != null)
+            {
+                detailString = ": " + GetDictionaryAsString(dictionary);
+            }
+            logger.LogError(eventId, ex, message + detailString);
         }
-        
+
         private static EventId GetEventIdFromErrorCode(string errorCode)
         {
             int errorId = 0;

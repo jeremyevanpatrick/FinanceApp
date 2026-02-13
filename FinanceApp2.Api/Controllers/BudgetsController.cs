@@ -1,24 +1,24 @@
 using FinanceApp2.Api.Extensions;
+using FinanceApp2.Api.Helpers;
+using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services;
 using FinanceApp2.Shared.Helpers;
-using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace FinanceApp2.Api.Controllers
 {
     [ApiController]
     [Route("[controller]")]
     [Authorize]
-    public class BudgetsController : ControllerBase
+    public class BudgetsController : ControllerBaseExtended
     {
         private readonly ILogger<BudgetsController> _logger;
-        private readonly IBudgetService _budgetService;
+        private readonly IBudgetDbService _budgetService;
 
-        public BudgetsController(ILogger<BudgetsController> logger, IBudgetService budgetService)
+        public BudgetsController(ILogger<BudgetsController> logger, IBudgetDbService budgetService)
         {
             _logger = logger;
             _budgetService = budgetService;
@@ -52,14 +52,13 @@ namespace FinanceApp2.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00001", ex, "Error getting budget by date", new Dictionary<string, string> {
+                _logger.LogErrorWithDictionary(BudgetErrorCodes.GetByDateUnexpected, ex, "Unexpected error while getting budget by date", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
                     { "Month", request.Month.ToString() },
                     { "Year", request.Year.ToString() }
                 });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to get budget by date");
         }
 
         [HttpPost("create")]
@@ -89,39 +88,33 @@ namespace FinanceApp2.Api.Controllers
 
                     if (sourceBudget == null)
                     {
-                        _logger.LogErrorWithDictionary("FI2.A-00002", null, "Clone source not found", new Dictionary<string, string> {
-                            { "UserId", userId.ToString() },
-                            { "Month", request.NewBudgetMonth.ToString() },
-                            { "Year", request.NewBudgetYear.ToString() }
-                        });
+                        return Problem400("Source budget not found. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
                     }
-                    else
+
+                    newBudget.Groups = sourceBudget.Groups.Select(g =>
                     {
-                        newBudget.Groups = sourceBudget.Groups.Select(g =>
+                        Group newGroup = new Group
                         {
-                            Group newGroup = new Group
-                            {
-                                BudgetId = newBudget.BudgetId,
-                                Budget = newBudget,
-                                GroupName = g.GroupName,
-                                Order = g.Order,
-                                CreatedAt = DateTime.UtcNow,
-                                ModifiedAt = DateTime.UtcNow
-                            };
+                            BudgetId = newBudget.BudgetId,
+                            Budget = newBudget,
+                            GroupName = g.GroupName,
+                            Order = g.Order,
+                            CreatedAt = DateTime.UtcNow,
+                            ModifiedAt = DateTime.UtcNow
+                        };
 
-                            newGroup.Items = g.Items.Select(i => new Item
-                            {
-                                GroupId = newGroup.GroupId,
-                                ItemName = i.ItemName,
-                                Budgeted = i.Budgeted,
-                                Group = newGroup,
-                                CreatedAt = DateTime.UtcNow,
-                                ModifiedAt = DateTime.UtcNow
-                            }).ToList();
-
-                            return newGroup;
+                        newGroup.Items = g.Items.Select(i => new Item
+                        {
+                            GroupId = newGroup.GroupId,
+                            ItemName = i.ItemName,
+                            Budgeted = i.Budgeted,
+                            Group = newGroup,
+                            CreatedAt = DateTime.UtcNow,
+                            ModifiedAt = DateTime.UtcNow
                         }).ToList();
-                    }
+
+                        return newGroup;
+                    }).ToList();
                 }
 
                 await _budgetService.CreateAsync(newBudget);
@@ -130,14 +123,13 @@ namespace FinanceApp2.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00003", ex, "Error creating budget", new Dictionary<string, string> {
+                _logger.LogErrorWithDictionary(BudgetErrorCodes.CreateBudgetUnexpected, ex, "Unexpected error while creating budget", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
                     { "Month", request.NewBudgetMonth.ToString() },
                     { "Year", request.NewBudgetYear.ToString() }
                 });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to create budget");
         }
 
         [HttpPost("update")]
@@ -151,30 +143,24 @@ namespace FinanceApp2.Api.Controllers
 
                 Budget? updatedBudget = BudgetMapper.ToEntity(request.Budget);
 
-                Budget? existingBudget = await _budgetService.GetById(updatedBudget.BudgetId);
+                Budget? existingBudget = await _budgetService.GetById(updatedBudget.BudgetId, true);
                 
                 if (existingBudget == null)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00005", null, "Existing budget not found", new Dictionary<string, string> {
-                        { "UserId", userId.ToString() },
-                        { "BudgetId", request.Budget.BudgetId.ToString() }
-                    });
+                    return Problem400("Invalid budgetId. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
                 }
-                else
-                {
-                    await _budgetService.UpdateAsync(existingBudget, updatedBudget);
-                    return Ok();
-                }
+
+                await _budgetService.UpdateAsync(existingBudget, updatedBudget);
+                return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00004", ex, "Error updating budget", new Dictionary<string, string> {
+                _logger.LogErrorWithDictionary(BudgetErrorCodes.UpdateBudgetUnexpected, ex, "Unexpected error while updating budget", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
                     { "BudgetId", request.Budget.BudgetId.ToString() }
                 });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to update budget");
         }
 
         [HttpPost("delete")]
@@ -190,26 +176,20 @@ namespace FinanceApp2.Api.Controllers
 
                 if (existingBudget == null)
                 {
-                    _logger.LogErrorWithDictionary("FI2.A-00007", null, "Existing budget not found", new Dictionary<string, string> {
-                        { "UserId", userId.ToString() },
-                        { "BudgetId", request.BudgetId.ToString() }
-                    });
+                    return Problem400("Invalid budgetId. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
                 }
-                else
-                {
-                    await _budgetService.DeleteAsync(existingBudget);
-                    return Ok();
-                }
+
+                await _budgetService.DeleteAsync(existingBudget);
+                return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary("FI2.A-00006", ex, "Error deleting budget", new Dictionary<string, string> {
+                _logger.LogErrorWithDictionary(BudgetErrorCodes.DeleteBudgetUnexpected, ex, "Unexpected error while deleting budget", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
                     { "BudgetId", request.BudgetId.ToString() }
                 });
+                return Problem("An unexpected error occurred. Please try again later.");
             }
-
-            return Problem("Unable to delete budget");
         }
     }
 }

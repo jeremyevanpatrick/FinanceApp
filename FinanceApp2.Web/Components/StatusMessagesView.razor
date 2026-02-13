@@ -3,26 +3,26 @@
 @using FinanceApp2.Shared.Services.DTOs
 @using FinanceApp2.Web.Helpers
 
-@if (StatusMessages.Any())
+@if (StatusMessages?.Any() == true)
 {
     <div class="container">
-        @foreach ((string message, UIStatus status) statusMessage in StatusMessages)
+        @foreach (UIStatusMessage statusMessage in StatusMessages)
         {
             string statusClass = string.Empty;
-            if (UIStatus.Success.Equals(statusMessage.status))
+            if (UIStatus.Success.Equals(statusMessage.Status))
             {
                 statusClass = "text-success";
             }
-            else if (UIStatus.Error.Equals(statusMessage.status))
+            else if (UIStatus.Error.Equals(statusMessage.Status))
             {
                 statusClass = "text-danger";
             }
-            <div class="text-center @(statusClass)">@statusMessage.message</div>
+            <div class="text-center @(statusClass)">@statusMessage.Message</div>
         }
     </div>
 }
 
 @code {
     [Parameter]
-    public List<(string message, UIStatus status)> StatusMessages { get; set; } = new List<(string message, UIStatus status)>();
+    public List<UIStatusMessage> StatusMessages { get; set; } = new List<UIStatusMessage>();
 }

@@ -1,4 +1,4 @@
-﻿using FinanceApp2.Shared.Models;
+﻿using FinanceApp2.Api.Models;
 using FinanceApp2.Shared.Services.DTOs;
 
 namespace FinanceApp2.Shared.Helpers

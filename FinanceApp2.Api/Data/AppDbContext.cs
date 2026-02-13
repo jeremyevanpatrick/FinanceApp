@@ -1,4 +1,4 @@
-﻿using FinanceApp2.Shared.Models;
+﻿using FinanceApp2.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanceApp2.Api.Data;

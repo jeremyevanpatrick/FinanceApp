@@ -2,6 +2,7 @@ using FinanceApp2.Api.Data;
 using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services;
 using FinanceApp2.Api.Settings;
+using FinanceApp2.Shared.Helpers;
 using FinanceApp2.Shared.Services;
 using FinanceApp2.Shared.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -15,7 +16,6 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.ClearProviders();
 builder.Services.AddSingleton<ILoggerProvider, RemoteLoggerProvider>();
 
 builder.Services.AddHttpClient();
@@ -32,17 +32,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddSingleton<LoggingService>();
-builder.Services.AddScoped<IBudgetService, BudgetService>();
+builder.Services.AddSingleton<LoggingDbService>();
+builder.Services.AddScoped<IBudgetDbService, BudgetDbService>();
+builder.Services.AddScoped<IAuthDbService, AuthDbService>();
 
 builder.Services.Configure<RemoteLoggingSettings>(builder.Configuration.GetSection("RemoteLogging"));
 builder.Services.Configure<ClientSettings>(builder.Configuration.GetSection("Client"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
-//builder.Services.Configure<MailerSendSettings>(builder.Configuration.GetSection("MailerSend"));
+builder.Services.Configure<DataCleanupSettings>(builder.Configuration.GetSection("DataCleanup"));
 
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
-//builder.Services.AddTransient<IEmailSender, MailerSendClient>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -81,6 +81,39 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSettings.Key))
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = context =>
+        {
+            context.HandleResponse();
+
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+
+            return context.Response.WriteAsJsonAsync(new
+            {
+                title = "Unauthorized",
+                detail = "Your session has expired. Please sign in again.",
+                status = 401,
+                errorCode = ResponseErrorCodes.UNAUTHORIZED.ToString()
+            });
+        },
+
+        OnForbidden = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+
+            return context.Response.WriteAsJsonAsync(new
+            {
+                title = "Forbidden",
+                detail = "You do not have permission to access this resource.",
+                status = 403,
+                errorCode = ResponseErrorCodes.FORBIDDEN.ToString()
+            });
+        }
+    };
 });
 
 builder.Services.AddRateLimiter(options =>
@@ -96,13 +129,18 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddHostedService<DataCleanupService>();
+
+var clientSettings = builder.Configuration.GetSection("Client").Get<ClientSettings>()!;
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowMAUI", policy =>
+    options.AddPolicy("BlazorPolicy", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins(clientSettings.Host)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -116,10 +154,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowMAUI");
+app.UseCors("BlazorPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.UseRateLimiter();
 
 app.MapControllers();

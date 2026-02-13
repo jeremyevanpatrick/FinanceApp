@@ -1,0 +1,39 @@
+{
+  "ConnectionStrings": {
+    "LoggingDb": "YOUR_LOGGING_DB_CONNECTION_STRING",
+    "DefaultConnection": "YOUR_DEFAULT_DB_CONNECTION_STRING"
+  },
+  "RemoteLogging": {
+    "ApplicationName": "FinanceApp2.Api",
+    "Endpoint": "https://localhost:7169/logs/logerror"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Client": {
+    "Host": "https://localhost:7134"
+  },
+  "Jwt": {
+    "Key": "YOUR_SECRET_JWT_KEY",
+    "Issuer": "FinanceApp2.Api",
+    "Audience": "FinanceApp2.Api",
+    "ExpireMinutes": 15
+  },
+  "Smtp": {
+    "Host": "YOUR_SMTP_HOST",
+    "Port": 587,
+    "EnableSsl": true,
+    "Username": "YOUR_SMTP_USERNAME",
+    "Password": "YOUR_SMTP_PASSWORD",
+    "FromEmail": "YOUR_EMAIL_ADDRESS",
+    "FromName": "FinanceApp2"
+  },
+  "DataCleanup": {
+    "OlderThanDays": 30,
+    "ScheduledHour": 3
+  },
+  "AllowedHosts": "*"
+}

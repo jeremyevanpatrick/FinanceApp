@@ -114,20 +114,23 @@
 
     private void HandleAddItem()
     {
-        var now = DateTime.UtcNow;
-        ItemDto item = new ItemDto()
+        if (!string.IsNullOrWhiteSpace(NewItemName))
         {
-            ItemId = Guid.NewGuid(),
-            ItemName = NewItemName,
-            GroupId = Group.GroupId,
-            CreatedAt = now,
-            ModifiedAt = now
-        };
-        Group.Items.Add(item);
-        Group.ModifiedAt = now;
-        NewItemName = string.Empty;
+            var now = DateTime.UtcNow;
+            ItemDto item = new ItemDto()
+                {
+                    ItemId = Guid.NewGuid(),
+                    ItemName = NewItemName,
+                    GroupId = Group.GroupId,
+                    CreatedAt = now,
+                    ModifiedAt = now
+                };
+            Group.Items.Add(item);
+            Group.ModifiedAt = now;
+            NewItemName = string.Empty;
 
-        StateHasChanged();
+            StateHasChanged();
+        }
     }
 
 }

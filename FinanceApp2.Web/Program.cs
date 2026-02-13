@@ -1,5 +1,4 @@
 using Blazored.SessionStorage;
-using FinanceApp2.Shared.Data;
 using FinanceApp2.Shared.Services;
 using FinanceApp2.Shared.Settings;
 using FinanceApp2.Web;
@@ -34,8 +33,6 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredServ
 
 builder.Services.AddScoped<IAuthClient, AuthClient>();
 
-
-
 builder.Services.AddScoped<JwtAuthorizationMessageHandler>();
 
 builder.Services.AddHttpClient("AuthenticatedApi", client =>
@@ -43,10 +40,6 @@ builder.Services.AddHttpClient("AuthenticatedApi", client =>
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
 })
 .AddHttpMessageHandler<JwtAuthorizationMessageHandler>();
-
-//builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
-
-
 
 builder.Services.AddAuthorizationCore();
 

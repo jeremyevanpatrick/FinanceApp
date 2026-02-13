@@ -11,12 +11,30 @@ public class AuthDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
-    protected override void OnModelCreating(ModelBuilder builder)
-    {
-        base.OnModelCreating(builder);
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
 
-        builder.Entity<ApplicationUser>()
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Application user configuration
+        modelBuilder.Entity<ApplicationUser>()
             .HasQueryFilter(u => !u.IsDeleted);
+
+        // Refresh token configuration
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+
+            entity.HasIndex(t => new { t.UserId, t.IsRevoked });
+
+            entity.HasIndex(t => t.ExpiresAt);
+
+            entity.Property(t => t.TokenHash).IsRequired();
+            entity.Property(t => t.UserId).IsRequired();
+            entity.Property(t => t.ExpiresAt).IsRequired();
+            entity.Property(t => t.CreatedAt).IsRequired();
+        });
     }
 
 }
