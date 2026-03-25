@@ -7,15 +7,30 @@ namespace FinanceApp2.Api.Controllers
     {
         protected ObjectResult Problem400(string detail, ResponseErrorCodes errorCode)
         {
-            return CreateProblem(StatusCodes.Status400BadRequest, detail, errorCode);
+            return ProblemWithErrorCode(StatusCodes.Status400BadRequest, detail, errorCode);
         }
 
         protected ObjectResult Problem401(string detail, ResponseErrorCodes errorCode)
         {
-            return CreateProblem(StatusCodes.Status401Unauthorized, detail, errorCode);
+            return ProblemWithErrorCode(StatusCodes.Status401Unauthorized, detail, errorCode);
         }
 
-        private ObjectResult CreateProblem(int statusCode, string detail, ResponseErrorCodes errorCode)
+        protected ObjectResult Problem404(string detail, ResponseErrorCodes errorCode)
+        {
+            return ProblemWithErrorCode(StatusCodes.Status404NotFound, detail, errorCode);
+        }
+
+        protected ObjectResult Problem409(string detail, ResponseErrorCodes errorCode)
+        {
+            return ProblemWithErrorCode(StatusCodes.Status409Conflict, detail, errorCode);
+        }
+
+        protected ObjectResult Problem500()
+        {
+            return Problem("An unexpected error occurred. Please try again later.");
+        }
+
+        protected ObjectResult ProblemWithErrorCode(int statusCode, string detail, ResponseErrorCodes errorCode)
         {
             return Problem(
                 detail: detail,

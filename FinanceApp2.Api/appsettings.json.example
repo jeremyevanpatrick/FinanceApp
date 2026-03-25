@@ -5,7 +5,7 @@
   },
   "RemoteLogging": {
     "ApplicationName": "FinanceApp2.Api",
-    "Endpoint": "https://localhost:7169/logs/logerror"
+    "Endpoint": "https://localhost:7169/error-logs"
   },
   "Logging": {
     "LogLevel": {

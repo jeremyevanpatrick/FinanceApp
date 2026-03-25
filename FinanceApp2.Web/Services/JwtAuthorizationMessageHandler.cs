@@ -85,7 +85,7 @@ namespace FinanceApp2.Web.Services
                 using var httpClient = new HttpClient();
                 httpClient.BaseAddress = new Uri(_authBaseUrl);
 
-                var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh");
+                var request = new HttpRequestMessage(HttpMethod.Post, "/sessions/refresh");
                 request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
 
                 var response = await httpClient.SendAsync(request, cancellationToken);

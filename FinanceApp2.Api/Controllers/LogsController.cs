@@ -5,21 +5,21 @@ using Microsoft.AspNetCore.Mvc;
 namespace FinanceApp2.Api.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("error-logs")]
     public class LogsController : ControllerBase
     {
-        private readonly LoggingDbService _loggingService;
+        private readonly ErrorLogQueue _errorLogQueue;
 
-        public LogsController(LoggingDbService loggingService)
+        public LogsController(ErrorLogQueue errorLogQueue)
         {
-            _loggingService = loggingService;
+            _errorLogQueue = errorLogQueue;
         }
 
-        [HttpPost("logerror")]
+        [HttpPost]
         public async Task<IActionResult> LogError([FromBody] Error error)
         {
-            _loggingService.LogError(error);
-            return Ok();
+            _errorLogQueue.Enqueue(error);
+            return Accepted();
         }
     }
 }

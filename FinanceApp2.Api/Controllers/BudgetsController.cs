@@ -1,7 +1,7 @@
+using FinanceApp2.Api.Errors;
+using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Extensions;
-using FinanceApp2.Api.Helpers;
-using FinanceApp2.Api.Models;
-using FinanceApp2.Api.Services;
+using FinanceApp2.Api.Services.Application;
 using FinanceApp2.Shared.Helpers;
 using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
@@ -16,16 +16,18 @@ namespace FinanceApp2.Api.Controllers
     public class BudgetsController : ControllerBaseExtended
     {
         private readonly ILogger<BudgetsController> _logger;
-        private readonly IBudgetDbService _budgetService;
+        private readonly IBudgetAppService _budgetAppService;
 
-        public BudgetsController(ILogger<BudgetsController> logger, IBudgetDbService budgetService)
+        public BudgetsController(
+            ILogger<BudgetsController> logger,
+            IBudgetAppService budgetAppService)
         {
             _logger = logger;
-            _budgetService = budgetService;
+            _budgetAppService = budgetAppService;
         }
 
-        [HttpGet("getbydate")]
-        public async Task<ActionResult<BudgetContainer>> GetByDate([FromQuery] GetByDateRequest request)
+        [HttpGet("{year:int}/{month:int}")]
+        public async Task<ActionResult<BudgetContainer>> Get(int year, int month)
         {
             Guid userId = Guid.Empty;
 
@@ -33,20 +35,7 @@ namespace FinanceApp2.Api.Controllers
             {
                 userId = User.GetUserId();
 
-                DateOnly requestedDate = new DateOnly(request.Year, request.Month, 1);
-                DateOnly previousMonthDate = requestedDate.AddMonths(-1);
-                DateOnly nextMonthDate = requestedDate.AddMonths(1);
-
-                Budget? budget = await _budgetService.GetByDate(userId, request.Month, request.Year);
-                bool hasPreviousMonth = await _budgetService.GetExistsByDate(userId, previousMonthDate.Month, previousMonthDate.Year);
-                bool hasNextMonth = await _budgetService.GetExistsByDate(userId, nextMonthDate.Month, nextMonthDate.Year);
-
-                BudgetContainer budgetContainer = new BudgetContainer()
-                {
-                    Budget = BudgetMapper.ToDto(budget),
-                    HasPreviousMonth = hasPreviousMonth,
-                    HasNextMonth = hasNextMonth
-                };
+                BudgetContainer budgetContainer = await _budgetAppService.GetByDateAsync(userId, month, year);
 
                 return Ok(budgetContainer);
             }
@@ -54,15 +43,15 @@ namespace FinanceApp2.Api.Controllers
             {
                 _logger.LogErrorWithDictionary(BudgetErrorCodes.GetByDateUnexpected, ex, "Unexpected error while getting budget by date", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
-                    { "Month", request.Month.ToString() },
-                    { "Year", request.Year.ToString() }
+                    { "Month", month.ToString() },
+                    { "Year", year.ToString() }
                 });
-                return Problem("An unexpected error occurred. Please try again later.");
+                return Problem500();
             }
         }
 
-        [HttpPost("create")]
-        public async Task<IActionResult> Create([FromBody] CreateBudgetRequest request)
+        [HttpPost]
+        public async Task<ActionResult<BudgetDto>> Create([FromBody] CreateBudgetRequest request)
         {
             Guid userId = Guid.Empty;
 
@@ -70,56 +59,20 @@ namespace FinanceApp2.Api.Controllers
             {
                 userId = User.GetUserId();
 
-                Budget newBudget = new Budget
-                {
-                    Month = request.NewBudgetMonth,
-                    Year = request.NewBudgetYear,
-                    UserId = userId,
-                    Income = 0,
-                    Groups = new List<Group>(),
-                    ModifiedAt = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var budget = await _budgetAppService.CreateAsync(userId, request.NewBudgetMonth, request.NewBudgetYear, request.SourceBudgetMonth, request.SourceBudgetYear);
 
-                if (request.SourceBudgetMonth != null && request.SourceBudgetYear != null)
-                {
-                    //if source fields are included in the request, clone contents from the source budget
-                    Budget? sourceBudget = await _budgetService.GetByDate(userId, (int)request.SourceBudgetMonth, (int)request.SourceBudgetYear);
-
-                    if (sourceBudget == null)
-                    {
-                        return Problem400("Source budget not found. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-                    }
-
-                    newBudget.Groups = sourceBudget.Groups.Select(g =>
-                    {
-                        Group newGroup = new Group
-                        {
-                            BudgetId = newBudget.BudgetId,
-                            Budget = newBudget,
-                            GroupName = g.GroupName,
-                            Order = g.Order,
-                            CreatedAt = DateTime.UtcNow,
-                            ModifiedAt = DateTime.UtcNow
-                        };
-
-                        newGroup.Items = g.Items.Select(i => new Item
-                        {
-                            GroupId = newGroup.GroupId,
-                            ItemName = i.ItemName,
-                            Budgeted = i.Budgeted,
-                            Group = newGroup,
-                            CreatedAt = DateTime.UtcNow,
-                            ModifiedAt = DateTime.UtcNow
-                        }).ToList();
-
-                        return newGroup;
-                    }).ToList();
-                }
-
-                await _budgetService.CreateAsync(newBudget);
-
-                return Ok();
+                return CreatedAtAction(
+                    nameof(Get),
+                    new { year = request.NewBudgetYear, month = request.NewBudgetMonth },
+                    budget);
+            }
+            catch (BudgetConflictException ex)
+            {
+                return Problem409(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
+            }
+            catch (NotFoundException ex)
+            {
+                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
             }
             catch (Exception ex)
             {
@@ -128,12 +81,12 @@ namespace FinanceApp2.Api.Controllers
                     { "Month", request.NewBudgetMonth.ToString() },
                     { "Year", request.NewBudgetYear.ToString() }
                 });
-                return Problem("An unexpected error occurred. Please try again later.");
+                return Problem500();
             }
         }
 
-        [HttpPost("update")]
-        public async Task<IActionResult> Update([FromBody] UpdateBudgetRequest request)
+        [HttpPatch("{year:int}/{month:int}")]
+        public async Task<IActionResult> Update(int year, int month, [FromBody] UpdateBudgetRequest request)
         {
             Guid userId = Guid.Empty;
 
@@ -141,30 +94,27 @@ namespace FinanceApp2.Api.Controllers
             {
                 userId = User.GetUserId();
 
-                Budget? updatedBudget = BudgetMapper.ToEntity(request.Budget);
+                await _budgetAppService.UpdateAsync(userId, month, year, request.Income, request.Groups);
 
-                Budget? existingBudget = await _budgetService.GetById(updatedBudget.BudgetId, true);
-                
-                if (existingBudget == null)
-                {
-                    return Problem400("Invalid budgetId. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-                }
-
-                await _budgetService.UpdateAsync(existingBudget, updatedBudget);
-                return Ok();
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
             }
             catch (Exception ex)
             {
                 _logger.LogErrorWithDictionary(BudgetErrorCodes.UpdateBudgetUnexpected, ex, "Unexpected error while updating budget", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
-                    { "BudgetId", request.Budget.BudgetId.ToString() }
+                    { "Month", month.ToString() },
+                    { "Year", year.ToString() }
                 });
-                return Problem("An unexpected error occurred. Please try again later.");
+                return Problem500();
             }
         }
 
-        [HttpPost("delete")]
-        public async Task<IActionResult> Delete([FromBody] DeleteBudgetRequest request)
+        [HttpDelete("{year:int}/{month:int}")]
+        public async Task<IActionResult> Delete(int year, int month)
         {
             Guid userId = Guid.Empty;
 
@@ -172,23 +122,22 @@ namespace FinanceApp2.Api.Controllers
             {
                 userId = User.GetUserId();
 
-                Budget? existingBudget = await _budgetService.GetById(request.BudgetId);
+                await _budgetAppService.DeleteAsync(userId, year, month);
 
-                if (existingBudget == null)
-                {
-                    return Problem400("Invalid budgetId. Please check your information and try again.", ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-                }
-
-                await _budgetService.DeleteAsync(existingBudget);
-                return Ok();
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
             }
             catch (Exception ex)
             {
                 _logger.LogErrorWithDictionary(BudgetErrorCodes.DeleteBudgetUnexpected, ex, "Unexpected error while deleting budget", new Dictionary<string, string> {
                     { "UserId", userId.ToString() },
-                    { "BudgetId", request.BudgetId.ToString() }
+                    { "Month", month.ToString() },
+                    { "Year", year.ToString() }
                 });
-                return Problem("An unexpected error occurred. Please try again later.");
+                return Problem500();
             }
         }
     }

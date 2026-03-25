@@ -1,6 +1,9 @@
-using FinanceApp2.Api.Data;
+using FinanceApp2.Api.Data.Context;
+using FinanceApp2.Api.Data.Repositories;
 using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services;
+using FinanceApp2.Api.Services.Application;
+using FinanceApp2.Api.Services.Background;
 using FinanceApp2.Api.Settings;
 using FinanceApp2.Shared.Helpers;
 using FinanceApp2.Shared.Services;
@@ -32,9 +35,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddSingleton<LoggingDbService>();
-builder.Services.AddScoped<IBudgetDbService, BudgetDbService>();
-builder.Services.AddScoped<IAuthDbService, AuthDbService>();
+builder.Services.AddSingleton<ErrorLogQueue>();
+builder.Services.AddSingleton<IErrorLogQueue>(sp => sp.GetRequiredService<ErrorLogQueue>());
+
+builder.Services.AddScoped<IBudgetRepository, BudgetRepository>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
+builder.Services.AddScoped<IBudgetAppService, BudgetAppService>();
+builder.Services.AddScoped<IAuthAppService, AuthAppService>();
 
 builder.Services.Configure<RemoteLoggingSettings>(builder.Configuration.GetSection("RemoteLogging"));
 builder.Services.Configure<ClientSettings>(builder.Configuration.GetSection("Client"));

@@ -32,6 +32,16 @@ namespace FinanceApp2.Web.Helpers
             await SendRequestAsync<TRequest>(HttpMethod.Post, requestUrl, request, includeCredentials, timeoutMs);
         }
 
+        public async Task PatchAsync<TRequest>(string requestUrl, TRequest? request, bool includeCredentials = false, int timeoutMs = 3000)
+        {
+            await SendRequestAsync<TRequest>(HttpMethod.Patch, requestUrl, request, includeCredentials, timeoutMs);
+        }
+
+        public async Task DeleteAsync<TRequest>(string requestUrl, TRequest? request, bool includeCredentials = false, int timeoutMs = 3000)
+        {
+            await SendRequestAsync<TRequest>(HttpMethod.Delete, requestUrl, request, includeCredentials, timeoutMs);
+        }
+
         private async Task<HttpResponseMessage> SendRequestAsync<TRequest>(HttpMethod method, string requestUrl, TRequest? request, bool includeCredentials = false, int timeoutMs = 3000)
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeoutMs));

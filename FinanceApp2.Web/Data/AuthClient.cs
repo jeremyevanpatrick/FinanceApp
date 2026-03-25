@@ -38,10 +38,82 @@ namespace FinanceApp2.Web.Data
             _authBaseUrl = applicationSettings.Value.AuthBaseUrl;
         }
 
+        public Task<BaseResult> RegisterAsync(string email, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/users";
+                RegisterWebRequest request = new RegisterWebRequest(email, password);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> DeleteAccountAsync(string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/users/me";
+                DeleteAccountRequest request = new DeleteAccountRequest(password);
+                await _requestHelperAuthenticated.DeleteAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ResendConfirmationEmailAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-confirmations";
+                ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ConfirmEmailAsync(string userId, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-confirmations/confirm";
+                ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ChangeEmailAsync(string newEmail, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/users/me/email";
+                ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
+                await _requestHelperAuthenticated.PatchAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ChangeEmailConfirmationAsync(string userId, string newEmail, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-change-confirmations";
+                ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ChangePasswordAsync(string existingPassword, string newPassword) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/users/me/password";
+                ChangePasswordRequest request = new ChangePasswordRequest(existingPassword, newPassword);
+                await _requestHelperAuthenticated.PatchAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ForgotPasswordAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/password-reset-requests";
+                ForgotPasswordRequest request = new ForgotPasswordRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ResetPasswordAsync(string email, string resetCode, string newPassword) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/password-resets";
+                ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
         public Task<BaseResult> LoginAsync(string email, string password) =>
             ExecuteAsync(async () =>
             {
-                string requestUrl = $"{_authBaseUrl}/auth/login";
+                string requestUrl = $"{_authBaseUrl}/sessions";
 
                 LoginWebRequest request = new LoginWebRequest(email, password);
                 AuthResponse response = await _requestHelperPublic.PostAsync<LoginWebRequest, AuthResponse>(requestUrl, request, true, 9000);
@@ -53,84 +125,12 @@ namespace FinanceApp2.Web.Data
                 ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(response.AccessToken);
             });
 
-        public Task<BaseResult> RegisterAsync(string email, string password) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/register";
-                RegisterWebRequest request = new RegisterWebRequest(email, password);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ResendConfirmationEmailAsync(string email) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/resendconfirmationemail";
-                ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ConfirmEmailAsync(string userId, string token) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/confirmemail";
-                ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ChangeEmailAsync(string newEmail, string password) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/changeemail";
-                ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
-                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ChangeEmailConfirmationAsync(string userId, string newEmail, string token) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/changeemailconfirmation";
-                ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ChangePasswordAsync(string existingPassword, string newPassword) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/changepassword";
-                ChangePasswordRequest request = new ChangePasswordRequest(existingPassword, newPassword);
-                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ForgotPasswordAsync(string email) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/forgotpassword";
-                ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ResetPasswordAsync(string email, string resetCode, string newPassword) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/resetpassword";
-                ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> DeleteAccountAsync(string password) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/auth/delete";
-                DeleteAccountRequest request = new DeleteAccountRequest(password);
-                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
-            });
-
         public Task<BaseResult> LogoutAsync() =>
             ExecuteAsync(async () =>
             {
-                string requestUrl = $"{_authBaseUrl}/auth/logout";
+                string requestUrl = $"{_authBaseUrl}/sessions";
 
-                await _requestHelperAuthenticated.PostAsync<object>(requestUrl, null, true, 9000);
+                await _requestHelperAuthenticated.DeleteAsync<object>(requestUrl, null, true, 9000);
 
                 await _sessionStorage.RemoveItemAsync("jwt_token");
                 await _sessionStorage.RemoveItemAsync("user_id");

@@ -1,11 +1,10 @@
 ﻿using FinanceApp2.Shared.Services.DTOs;
-using System.ComponentModel.DataAnnotations;
 
 namespace FinanceApp2.Shared.Services.Requests
 {
     public class UpdateBudgetRequest
     {
-        [Required]
-        public BudgetDto Budget { get; set; } = null!;
+        public int? Income { get; set; } = 0;
+        public List<GroupDto> Groups { get; set; } = new List<GroupDto>();
     }
 }

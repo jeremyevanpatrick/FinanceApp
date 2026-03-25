@@ -263,7 +263,7 @@
     {
         isInitialBudgetLoaded = false;
 
-        await BudgetClient.GetBudgetAsync(currentBudgetDate.Month, currentBudgetDate.Year)
+        await BudgetClient.GetBudgetAsync(currentBudgetDate.Year, currentBudgetDate.Month)
         .HandleAsync<BudgetContainer?>(
             onSuccess: (BudgetContainer? result) =>
             {
@@ -339,8 +339,6 @@
             return;
         }
 
-        budgetContainer.Budget.ModifiedAt = DateTime.UtcNow;
-
         await BudgetClient.UpdateBudgetAsync(budgetContainer.Budget)
         .HandleAsync(
             onSuccess: () =>
@@ -395,7 +393,7 @@
 
         bool isSuccess = false;
 
-        await BudgetClient.DeleteBudgetAsync(budgetContainer.Budget.BudgetId)
+        await BudgetClient.DeleteBudgetAsync(budgetContainer.Budget.Year, budgetContainer.Budget.Month)
         .HandleAsync(
             onSuccess: () =>
             {
@@ -420,7 +418,7 @@
 
         await BudgetClient.CreateBudgetAsync(newBudgetDate, sourceBudgetDate)
         .HandleAsync(
-            onSuccess: () => { isSuccess = true; },
+            onSuccess: (BudgetDto? budget) => { isSuccess = true; },
             onError: (string errorString) => { statusMessageHelper.ShowError(errorString); }
         );
 

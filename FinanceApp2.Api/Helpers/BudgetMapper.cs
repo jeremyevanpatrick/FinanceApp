@@ -60,31 +60,42 @@ namespace FinanceApp2.Shared.Helpers
                 Year = b.Year,
                 Income = b.Income ?? 0,
                 UserId = b.UserId,
-                Groups = b.Groups.Select(g => new Group()
-                {
-                    GroupId = g.GroupId,
-                    GroupName = g.GroupName,
-                    BudgetId = g.BudgetId,
-                    Order = g.Order,
-                    Items = g.Items.Select(i => new Item()
-                    {
-                        ItemId = i.ItemId,
-                        ItemName = i.ItemName,
-                        GroupId = i.GroupId,
-                        Budgeted = i.Budgeted,
-                        Spent = i.Spent,
-                        CreatedAt = i.CreatedAt,
-                        ModifiedAt = i.ModifiedAt,
-                        IsDeleted = i.IsDeleted
-                    }).ToList(),
-                    CreatedAt = g.CreatedAt,
-                    ModifiedAt = g.ModifiedAt,
-                    IsDeleted = g.IsDeleted
-                }).ToList(),
+                Groups = b.Groups.Select(g => ToEntity(g)).ToList(),
                 CreatedAt = b.CreatedAt,
                 ModifiedAt = b.ModifiedAt,
                 IsDeleted = b.IsDeleted
             };
         }
+
+        public static Group ToEntity(GroupDto g)
+        {
+            return new Group()
+            {
+                GroupId = g.GroupId,
+                GroupName = g.GroupName,
+                BudgetId = g.BudgetId,
+                Order = g.Order,
+                Items = g.Items.Select(i => ToEntity(i)).ToList(),
+                CreatedAt = g.CreatedAt,
+                ModifiedAt = g.ModifiedAt,
+                IsDeleted = g.IsDeleted
+            };
+        }
+
+        public static Item ToEntity(ItemDto i)
+        {
+            return new Item()
+            {
+                ItemId = i.ItemId,
+                ItemName = i.ItemName,
+                GroupId = i.GroupId,
+                Budgeted = i.Budgeted,
+                Spent = i.Spent,
+                CreatedAt = i.CreatedAt,
+                ModifiedAt = i.ModifiedAt,
+                IsDeleted = i.IsDeleted
+            };
+        }
+
     }
 }
