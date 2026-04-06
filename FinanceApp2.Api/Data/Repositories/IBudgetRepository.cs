@@ -6,6 +6,8 @@ namespace FinanceApp2.Api.Data.Repositories
     {
         public Task<Budget?> GetByDateAsync(Guid userId, int month, int year);
 
+        public Task<Budget?> GetByDateIncludingDeletedAsync(Guid userId, int month, int year);
+
         public Task<bool> GetExistsByDateAsync(Guid userId, int month, int year);
 
         public Task CreateAsync(Budget budget);
@@ -18,6 +20,6 @@ namespace FinanceApp2.Api.Data.Repositories
 
         public Task DeleteUserDataAsync(Guid userId);
 
-        public Task CleanupSoftDeletedUserDataAsync(int olderThanDays = 0);
+        public Task CleanupSoftDeletedUserDataAsync(int purgeAfterDays);
     }
 }

@@ -1,8 +1,10 @@
-using FinanceApp2.Api.Errors;
 using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Extensions;
+using FinanceApp2.Api.Helpers;
 using FinanceApp2.Api.Services.Application;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Errors;
+using FinanceApp2.Shared.Extensions;
+using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
 using Microsoft.AspNetCore.Authorization;
@@ -16,128 +18,184 @@ namespace FinanceApp2.Api.Controllers
     public class BudgetsController : ControllerBaseExtended
     {
         private readonly ILogger<BudgetsController> _logger;
+        private readonly BudgetsLinkHelper _budgetsLinkHelper;
         private readonly IBudgetAppService _budgetAppService;
 
         public BudgetsController(
             ILogger<BudgetsController> logger,
+            BudgetsLinkHelper budgetsLinkHelper,
             IBudgetAppService budgetAppService)
         {
             _logger = logger;
+            _budgetsLinkHelper = budgetsLinkHelper;
             _budgetAppService = budgetAppService;
         }
 
         [HttpGet("{year:int}/{month:int}")]
-        public async Task<ActionResult<BudgetContainer>> Get(int year, int month)
+        public async Task<ActionResult<BudgetContainerDto>> Get([FromRoute] int year, [FromRoute] int month)
         {
-            Guid userId = Guid.Empty;
-
-            try
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
             {
-                userId = User.GetUserId();
+                Guid userId = Guid.Empty;
 
-                BudgetContainer budgetContainer = await _budgetAppService.GetByDateAsync(userId, month, year);
+                try
+                {
+                    userId = User.GetUserId();
 
-                return Ok(budgetContainer);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(BudgetErrorCodes.GetByDateUnexpected, ex, "Unexpected error while getting budget by date", new Dictionary<string, string> {
-                    { "UserId", userId.ToString() },
-                    { "Month", month.ToString() },
-                    { "Year", year.ToString() }
-                });
-                return Problem500();
+                    BudgetContainerDto budgetContainer = await _budgetAppService.GetByDateAsync(userId, month, year);
+
+                    budgetContainer.Links = _budgetsLinkHelper.GetLinksForBudgetsGet(year, month, budgetContainer.Budget != null);
+
+                    return Ok(budgetContainer);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while getting budget by date. ErrorCode: {ErrorCode}, UserId: {UserId}, Month: {Month}, Year: {Year}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId,
+                        month,
+                        year);
+                    return Problem500();
+                }
             }
         }
 
         [HttpPost]
         public async Task<ActionResult<BudgetDto>> Create([FromBody] CreateBudgetRequest request)
         {
-            Guid userId = Guid.Empty;
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
+            {
+                Guid userId = Guid.Empty;
 
-            try
-            {
-                userId = User.GetUserId();
+                try
+                {
+                    userId = User.GetUserId();
 
-                var budget = await _budgetAppService.CreateAsync(userId, request.NewBudgetMonth, request.NewBudgetYear, request.SourceBudgetMonth, request.SourceBudgetYear);
+                    var budget = await _budgetAppService.CreateAsync(userId, request.NewBudgetMonth, request.NewBudgetYear, request.SourceBudgetMonth, request.SourceBudgetYear);
 
-                return CreatedAtAction(
-                    nameof(Get),
-                    new { year = request.NewBudgetYear, month = request.NewBudgetMonth },
-                    budget);
-            }
-            catch (BudgetConflictException ex)
-            {
-                return Problem409(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-            }
-            catch (NotFoundException ex)
-            {
-                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(BudgetErrorCodes.CreateBudgetUnexpected, ex, "Unexpected error while creating budget", new Dictionary<string, string> {
-                    { "UserId", userId.ToString() },
-                    { "Month", request.NewBudgetMonth.ToString() },
-                    { "Year", request.NewBudgetYear.ToString() }
-                });
-                return Problem500();
+                    budget.Links = _budgetsLinkHelper.GetLinksForBudgetsCreate(budget.Year, budget.Month);
+
+                    return CreatedAtAction(
+                        nameof(Get),
+                        new { year = request.NewBudgetYear, month = request.NewBudgetMonth },
+                        budget);
+                }
+                catch (BudgetConflictException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsGetSelf(request.NewBudgetYear, request.NewBudgetMonth),
+                        _budgetsLinkHelper.BudgetsUpdate(request.NewBudgetYear, request.NewBudgetMonth)
+                    };
+                    return Problem409(ex.Message, ApiErrorCodes.INVALID_REQUEST_PARAMETERS, links);
+                }
+                catch (NotFoundException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsCreate()
+                    };
+                    return Problem404(ex.Message, ApiErrorCodes.INVALID_REQUEST_PARAMETERS, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while creating budget. ErrorCode: {ErrorCode}, UserId: {UserId}, Month: {Month}, Year: {Year}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId,
+                        request.NewBudgetMonth,
+                        request.NewBudgetYear);
+                    return Problem500();
+                }
             }
         }
 
         [HttpPatch("{year:int}/{month:int}")]
-        public async Task<IActionResult> Update(int year, int month, [FromBody] UpdateBudgetRequest request)
+        public async Task<ActionResult<List<Link>>> Update([FromRoute] int year, [FromRoute] int month, [FromBody] UpdateBudgetRequest request)
         {
-            Guid userId = Guid.Empty;
-
-            try
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
             {
-                userId = User.GetUserId();
+                Guid userId = Guid.Empty;
 
-                await _budgetAppService.UpdateAsync(userId, month, year, request.Income, request.Groups);
+                try
+                {
+                    userId = User.GetUserId();
 
-                return NoContent();
-            }
-            catch (NotFoundException ex)
-            {
-                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(BudgetErrorCodes.UpdateBudgetUnexpected, ex, "Unexpected error while updating budget", new Dictionary<string, string> {
-                    { "UserId", userId.ToString() },
-                    { "Month", month.ToString() },
-                    { "Year", year.ToString() }
-                });
-                return Problem500();
+                    await _budgetAppService.UpdateAsync(userId, month, year, request.Income, request.Groups);
+
+                    return Ok(new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsGetSelf(year, month),
+                        _budgetsLinkHelper.BudgetsUpdate(year, month),
+                        _budgetsLinkHelper.BudgetsDelete(year, month)
+                    });
+                }
+                catch (NotFoundException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsCreate()
+                    };
+                    return Problem404(ex.Message, ApiErrorCodes.INVALID_REQUEST_PARAMETERS, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while updating budget. ErrorCode: {ErrorCode}, UserId: {UserId}, Month: {Month}, Year: {Year}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId,
+                        month,
+                        year);
+                    return Problem500();
+                }
             }
         }
 
         [HttpDelete("{year:int}/{month:int}")]
-        public async Task<IActionResult> Delete(int year, int month)
+        public async Task<ActionResult<List<Link>>> Delete([FromRoute] int year, [FromRoute] int month)
         {
-            Guid userId = Guid.Empty;
-
-            try
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
             {
-                userId = User.GetUserId();
+                Guid userId = Guid.Empty;
 
-                await _budgetAppService.DeleteAsync(userId, year, month);
+                try
+                {
+                    userId = User.GetUserId();
 
-                return NoContent();
-            }
-            catch (NotFoundException ex)
-            {
-                return Problem404(ex.Message, ResponseErrorCodes.INVALID_REQUEST_PARAMETERS);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(BudgetErrorCodes.DeleteBudgetUnexpected, ex, "Unexpected error while deleting budget", new Dictionary<string, string> {
-                    { "UserId", userId.ToString() },
-                    { "Month", month.ToString() },
-                    { "Year", year.ToString() }
-                });
-                return Problem500();
+                    await _budgetAppService.DeleteAsync(userId, year, month);
+
+                    return Ok(new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsCreate()
+                    });
+                }
+                catch (NotFoundException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _budgetsLinkHelper.BudgetsCreate()
+                    };
+                    return Problem404(ex.Message, ApiErrorCodes.INVALID_REQUEST_PARAMETERS, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while deleting budget. ErrorCode: {ErrorCode}, UserId: {UserId}, Month: {Month}, Year: {Year}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId,
+                        month,
+                        year);
+                    return Problem500();
+                }
             }
         }
     }

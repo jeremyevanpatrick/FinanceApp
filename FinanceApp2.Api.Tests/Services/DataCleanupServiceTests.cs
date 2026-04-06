@@ -46,7 +46,10 @@ namespace FinanceApp2.Api.Tests.Services
         public async Task ExecuteAsync_WhenValid_CompletesSuccessfully()
         {
             // Arrange
-            var olderThanDays = 30;
+            var purgeSoftDeletedAfterDays = 30;
+            var purgeTokensAfterDays = 1;
+            var purgeInfoLogsAfterDays = 1;
+            var purgeErrorLogsAfterDays = 7;
             var testId1 = Guid.NewGuid();
             var testId2 = Guid.NewGuid();
             var softDeletedUsers = new List<ApplicationUser>
@@ -65,6 +68,12 @@ namespace FinanceApp2.Api.Tests.Services
                 }
             };
 
+            var loggingRepoMock = new Mock<ILoggingRepository>();
+            loggingRepoMock.Setup(x => x.DeleteInfoLogsByDaysAsync(It.IsAny<int>()))
+                .Returns(Task.CompletedTask);
+            loggingRepoMock.Setup(x => x.DeleteErrorLogsByDaysAsync(It.IsAny<int>()))
+                .Returns(Task.CompletedTask);
+
             var authRepoMock = new Mock<IAuthRepository>();
             authRepoMock.Setup(x => x.DeleteRefreshTokensExpiredByDaysAsync(It.IsAny<int>()))
                 .Returns(Task.CompletedTask);
@@ -82,6 +91,8 @@ namespace FinanceApp2.Api.Tests.Services
                 .ReturnsAsync(IdentityResult.Success);
 
             var mockScopeProvider = new Mock<IServiceProvider>();
+            mockScopeProvider.Setup(x => x.GetService(typeof(ILoggingRepository)))
+                .Returns(loggingRepoMock.Object);
             mockScopeProvider.Setup(x => x.GetService(typeof(IAuthRepository)))
                 .Returns(authRepoMock.Object);
             mockScopeProvider.Setup(x => x.GetService(typeof(IBudgetRepository)))
@@ -94,7 +105,10 @@ namespace FinanceApp2.Api.Tests.Services
             var dataCleanupSettings = Options.Create(new DataCleanupSettings
             {
                 ScheduledHour = DateTime.UtcNow.Hour,
-                OlderThanDays = olderThanDays
+                PurgeSoftDeletedAfterDays = purgeSoftDeletedAfterDays,
+                PurgeTokensAfterDays = purgeTokensAfterDays,
+                PurgeInfoLogsAfterDays = purgeInfoLogsAfterDays,
+                PurgeErrorLogsAfterDays = purgeErrorLogsAfterDays
             });
             
             var service = new DataCleanupService(mockScopeFactory, Mock.Of<ILogger<DataCleanupService>>(), dataCleanupSettings);
@@ -108,7 +122,7 @@ namespace FinanceApp2.Api.Tests.Services
 
             // Assert
             authRepoMock.Verify(
-                x => x.DeleteRefreshTokensExpiredByDaysAsync(olderThanDays),
+                x => x.DeleteRefreshTokensExpiredByDaysAsync(purgeTokensAfterDays),
                 Times.Once);
 
             budgetRepoMock.Verify(
@@ -119,7 +133,14 @@ namespace FinanceApp2.Api.Tests.Services
                 Times.Once);
 
             budgetRepoMock.Verify(
-                x => x.CleanupSoftDeletedUserDataAsync(olderThanDays),
+                x => x.CleanupSoftDeletedUserDataAsync(purgeSoftDeletedAfterDays),
+                Times.Once);
+
+            loggingRepoMock.Verify(
+                x => x.DeleteInfoLogsByDaysAsync(purgeInfoLogsAfterDays),
+                Times.Once);
+            loggingRepoMock.Verify(
+                x => x.DeleteErrorLogsByDaysAsync(purgeErrorLogsAfterDays),
                 Times.Once);
         }
 
@@ -127,6 +148,12 @@ namespace FinanceApp2.Api.Tests.Services
         public async Task ExecuteAsync_WhenDatabaseIsUnreachable_DoesNothing()
         {
             // Arrange
+            var loggingRepoMock = new Mock<ILoggingRepository>();
+            loggingRepoMock.Setup(x => x.DeleteInfoLogsByDaysAsync(It.IsAny<int>()))
+                .ThrowsAsync(new Exception("test"));
+            loggingRepoMock.Setup(x => x.DeleteErrorLogsByDaysAsync(It.IsAny<int>()))
+                .ThrowsAsync(new Exception("test"));
+
             var authRepoMock = new Mock<IAuthRepository>();
             authRepoMock.Setup(x => x.DeleteRefreshTokensExpiredByDaysAsync(It.IsAny<int>()))
                 .ThrowsAsync(new Exception("test"));
@@ -138,6 +165,8 @@ namespace FinanceApp2.Api.Tests.Services
                 .ThrowsAsync(new Exception("test"));
 
             var mockScopeProvider = new Mock<IServiceProvider>();
+            mockScopeProvider.Setup(x => x.GetService(typeof(ILoggingRepository)))
+                .Returns(loggingRepoMock.Object);
             mockScopeProvider.Setup(x => x.GetService(typeof(IAuthRepository)))
                 .Returns(authRepoMock.Object);
             mockScopeProvider.Setup(x => x.GetService(typeof(IBudgetRepository)))
@@ -148,7 +177,10 @@ namespace FinanceApp2.Api.Tests.Services
             var dataCleanupSettings = Options.Create(new DataCleanupSettings
             {
                 ScheduledHour = DateTime.UtcNow.Hour,
-                OlderThanDays = 30
+                PurgeSoftDeletedAfterDays = 30,
+                PurgeTokensAfterDays= 1,
+                PurgeInfoLogsAfterDays= 1,
+                PurgeErrorLogsAfterDays= 7
             });
 
             var mockLogger = new Mock<ILogger<DataCleanupService>>();

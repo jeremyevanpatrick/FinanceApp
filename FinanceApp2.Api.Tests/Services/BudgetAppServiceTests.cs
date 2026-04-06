@@ -5,8 +5,8 @@ using FinanceApp2.Api.Services.Application;
 using FinanceApp2.Shared.Services.DTOs;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Moq;
-using Newtonsoft.Json.Linq;
 
 namespace FinanceApp2.Api.Tests.Services
 {
@@ -35,7 +35,7 @@ namespace FinanceApp2.Api.Tests.Services
             mockRepo.Setup(r => r.GetExistsByDateAsync(It.IsAny<Guid>(), selectedMonth + 1, It.IsAny<int>()))
                 .ReturnsAsync(false);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             var result = await service.GetByDateAsync(Guid.NewGuid(), selectedMonth, selectedYear);
@@ -61,7 +61,7 @@ namespace FinanceApp2.Api.Tests.Services
             mockRepo.Setup(r => r.GetExistsByDateAsync(It.IsAny<Guid>(), selectedMonth + 1, It.IsAny<int>()))
                 .ReturnsAsync(false);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             var result = await service.GetByDateAsync(Guid.NewGuid(), selectedMonth, selectedYear);
@@ -85,7 +85,7 @@ namespace FinanceApp2.Api.Tests.Services
             mockRepo.Setup(r => r.CreateAsync(It.IsAny<Budget>()))
                 .Returns(Task.CompletedTask);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             var result = await service.CreateAsync(Guid.NewGuid(), selectedMonth, selectedYear, null, null);
@@ -161,7 +161,7 @@ namespace FinanceApp2.Api.Tests.Services
             mockRepo.Setup(r => r.CreateAsync(It.IsAny<Budget>()))
                 .Returns(Task.CompletedTask);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             var result = await service.CreateAsync(userId, selectedMonth, selectedYear, sourceMonth, sourceYear);
@@ -184,11 +184,15 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockRepo = new Mock<IBudgetRepository>();
             mockRepo.Setup(r => r.GetByDateAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync(new Budget());
+                .ReturnsAsync(new Budget()
+                {
+                    Month = selectedMonth,
+                    Year = selectedYear
+                });
             mockRepo.Setup(r => r.CreateAsync(It.IsAny<Budget>()))
                 .Returns(Task.CompletedTask);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.CreateAsync(Guid.NewGuid(), selectedMonth, selectedYear, null, null);
@@ -213,7 +217,7 @@ namespace FinanceApp2.Api.Tests.Services
             mockRepo.Setup(r => r.GetByDateAsync(It.IsAny<Guid>(), sourceMonth, sourceYear))
                 .ReturnsAsync((Budget?)null);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.CreateAsync(userId, selectedMonth, selectedYear, sourceMonth, sourceYear);
@@ -327,7 +331,7 @@ namespace FinanceApp2.Api.Tests.Services
             };
 
             var mockRepo = new Mock<IBudgetRepository>();
-            mockRepo.Setup(r => r.GetByDateAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockRepo.Setup(r => r.GetByDateIncludingDeletedAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
                 .ReturnsAsync(existingBudget);
             List<Group>? groupsToAdd = null;
             mockRepo.Setup(r => r.CreateGroupsAsync(It.IsAny<List<Group>>()))
@@ -342,7 +346,7 @@ namespace FinanceApp2.Api.Tests.Services
                 .Callback<Budget>(b => budgetToUpdate = b)
                 .Returns(Task.CompletedTask);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.UpdateAsync(userId, selectedMonth, selectedYear, updatedIncome, updatedGroups);
@@ -380,10 +384,10 @@ namespace FinanceApp2.Api.Tests.Services
             };
 
             var mockRepo = new Mock<IBudgetRepository>();
-            mockRepo.Setup(r => r.GetByDateAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
+            mockRepo.Setup(r => r.GetByDateIncludingDeletedAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
                 .ThrowsAsync(new NotFoundException("test"));
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.UpdateAsync(userId, selectedMonth, selectedYear, updatedIncome, updatedGroups);
@@ -416,7 +420,7 @@ namespace FinanceApp2.Api.Tests.Services
                 .Callback<Budget>(b => updatedBudget = b)
                 .Returns(Task.CompletedTask);
 
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.DeleteAsync(Guid.NewGuid(), selectedMonth, selectedYear);
@@ -436,7 +440,7 @@ namespace FinanceApp2.Api.Tests.Services
             var mockRepo = new Mock<IBudgetRepository>();
             mockRepo.Setup(r => r.GetByDateAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
                 .ReturnsAsync((Budget?)null);
-            var service = new BudgetAppService(mockRepo.Object);
+            var service = new BudgetAppService(Mock.Of<ILogger<BudgetAppService>>(), mockRepo.Object);
 
             // Act
             Func<Task> result = () => service.DeleteAsync(Guid.NewGuid(), selectedMonth, selectedYear);

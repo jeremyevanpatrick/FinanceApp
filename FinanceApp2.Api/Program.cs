@@ -1,23 +1,31 @@
 using FinanceApp2.Api.Data.Context;
 using FinanceApp2.Api.Data.Repositories;
+using FinanceApp2.Api.Helpers;
+using FinanceApp2.Api.Middleware;
 using FinanceApp2.Api.Models;
-using FinanceApp2.Api.Services;
 using FinanceApp2.Api.Services.Application;
 using FinanceApp2.Api.Services.Background;
+using FinanceApp2.Api.Services.Queues;
 using FinanceApp2.Api.Settings;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Errors;
 using FinanceApp2.Shared.Services;
+using FinanceApp2.Shared.Services.Queues;
 using FinanceApp2.Shared.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Shared.Services.Responses;
 using System.Text;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSingleton<IExternalScopeProvider, LoggerExternalScopeProvider>();
 
 builder.Services.AddSingleton<ILoggerProvider, RemoteLoggerProvider>();
 
@@ -35,14 +43,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddSingleton<ErrorLogQueue>();
-builder.Services.AddSingleton<IErrorLogQueue>(sp => sp.GetRequiredService<ErrorLogQueue>());
+builder.Services.AddSingleton<ILogProcessorQueue, LogProcessorQueue>();
+builder.Services.AddSingleton<IEmailSenderQueue, EmailSenderQueue>();
 
+builder.Services.AddScoped<ILoggingRepository, LoggingRepository>();
 builder.Services.AddScoped<IBudgetRepository, BudgetRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 
 builder.Services.AddScoped<IBudgetAppService, BudgetAppService>();
 builder.Services.AddScoped<IAuthAppService, AuthAppService>();
+
+builder.Services.AddSingleton<BudgetsLinkHelper>();
+builder.Services.AddSingleton<SessionsLinkHelper>();
+builder.Services.AddSingleton<EmailConfirmationRequestsLinkHelper>();
+builder.Services.AddSingleton<EmailChangeRequestsLinkHelper>();
+builder.Services.AddSingleton<PasswordResetRequestsLinkHelper>();
+builder.Services.AddSingleton<UsersLinkHelper>();
 
 builder.Services.Configure<RemoteLoggingSettings>(builder.Configuration.GetSection("RemoteLogging"));
 builder.Services.Configure<ClientSettings>(builder.Configuration.GetSection("Client"));
@@ -51,6 +67,34 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"
 builder.Services.Configure<DataCleanupSettings>(builder.Configuration.GetSection("DataCleanup"));
 
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .Select(x => new ResponseErrorItem
+            {
+                Field = x.Key,
+                Messages = x.Value!.Errors.Select(e => e.ErrorMessage).ToList()
+            }).ToList();
+
+        string title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status400BadRequest);
+
+        var apiErrorResponse = new ApiErrorResponse
+        {
+            Title = title,
+            Status = StatusCodes.Status400BadRequest,
+            Detail = "Validation failed",
+            ErrorCode = ApiErrorCodes.INVALID_REQUEST_PARAMETERS.ToString(),
+            Errors = errors,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        return new BadRequestObjectResult(apiErrorResponse);
+    };
+});
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -99,12 +143,15 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.ContentType = "application/json";
 
-            return context.Response.WriteAsJsonAsync(new
+            string title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status401Unauthorized);
+
+            return context.Response.WriteAsJsonAsync(new ApiErrorResponse
             {
-                title = "Unauthorized",
-                detail = "Your session has expired. Please sign in again.",
-                status = 401,
-                errorCode = ResponseErrorCodes.UNAUTHORIZED.ToString()
+                Title = title,
+                Status = StatusCodes.Status401Unauthorized,
+                Detail = "Your session has expired. Please sign in again.",
+                ErrorCode = ApiErrorCodes.UNAUTHORIZED.ToString(),
+                Instance = context.HttpContext.Request.Path
             });
         },
 
@@ -113,12 +160,15 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
 
-            return context.Response.WriteAsJsonAsync(new
+            string title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status403Forbidden);
+
+            return context.Response.WriteAsJsonAsync(new ApiErrorResponse
             {
-                title = "Forbidden",
-                detail = "You do not have permission to access this resource.",
-                status = 403,
-                errorCode = ResponseErrorCodes.FORBIDDEN.ToString()
+                Title = title,
+                Status = StatusCodes.Status403Forbidden,
+                Detail = "You do not have permission to access this resource.",
+                ErrorCode = ApiErrorCodes.FORBIDDEN.ToString(),
+                Instance = context.HttpContext.Request.Path
             });
         }
     };
@@ -126,18 +176,60 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("public-messaging-endpoints", limiter =>
+    options.AddFixedWindowLimiter("messaging-endpoints-global", limiter =>
     {
-        limiter.PermitLimit = 5;
-        limiter.Window = TimeSpan.FromMinutes(15);
+        limiter.PermitLimit = 100;
+        limiter.Window = TimeSpan.FromMinutes(60);
         limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiter.QueueLimit = 0;
+        limiter.AutoReplenishment = true;
     });
+
+    options.AddPolicy("public-token-refresh-endpoint", context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 50,
+                Window = TimeSpan.FromMinutes(5),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var metadata) ? (int?)metadata.TotalSeconds : null;
+        if (retryAfterSeconds.HasValue)
+        {
+            context.HttpContext.Response.Headers["Retry-After"] = retryAfterSeconds.Value.ToString();
+        }
+
+        string title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status429TooManyRequests);
+
+        await context.HttpContext.Response.WriteAsJsonAsync(new ApiErrorResponse
+        {
+            Title = title,
+            Status = StatusCodes.Status429TooManyRequests,
+            Detail = "Rate limit exceeded. Try again later.",
+            ErrorCode = ApiErrorCodes.TOOMANYREQUESTS.ToString(),
+            Instance = context.HttpContext.Request.Path
+        });
+    };
 });
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddHostedService<ErrorLoggingService>();
 builder.Services.AddHostedService<DataCleanupService>();
+builder.Services.AddHostedService<EmailSenderService>();
 
 var clientSettings = builder.Configuration.GetSection("Client").Get<ClientSettings>()!;
 
@@ -159,6 +251,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseHttpsRedirection();
 

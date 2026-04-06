@@ -1,6 +1,7 @@
 ﻿using Blazored.SessionStorage;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Extensions;
 using FinanceApp2.Shared.Services.Responses;
+using FinanceApp2.Web.Errors;
 using FinanceApp2.Web.Helpers;
 using FinanceApp2.Web.Settings;
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
@@ -107,7 +108,10 @@ namespace FinanceApp2.Web.Services
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary(WebErrorCodes.RefreshTokenUnexpected, ex, "Unexpected error while refreshing token");
+                _logger.LogError(
+                    ex,
+                    "Unexpected error while refreshing token. ErrorCode: {ErrorCode}",
+                    WebErrorCodes.REFRESH_TOKEN_ERROR);
                 await _sessionStorage.RemoveItemAsync("jwt_token");
                 return null;
             }

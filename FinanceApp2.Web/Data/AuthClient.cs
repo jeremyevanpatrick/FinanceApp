@@ -54,60 +54,12 @@ namespace FinanceApp2.Web.Data
                 await _requestHelperAuthenticated.DeleteAsync(requestUrl, request, false, 9000);
             });
 
-        public Task<BaseResult> ResendConfirmationEmailAsync(string email) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/email-confirmations";
-                ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ConfirmEmailAsync(string userId, string token) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/email-confirmations/confirm";
-                ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ChangeEmailAsync(string newEmail, string password) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/users/me/email";
-                ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
-                await _requestHelperAuthenticated.PatchAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ChangeEmailConfirmationAsync(string userId, string newEmail, string token) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/email-change-confirmations";
-                ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
-                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
-            });
-
         public Task<BaseResult> ChangePasswordAsync(string existingPassword, string newPassword) =>
             ExecuteAsync(async () =>
             {
                 string requestUrl = $"{_authBaseUrl}/users/me/password";
                 ChangePasswordRequest request = new ChangePasswordRequest(existingPassword, newPassword);
                 await _requestHelperAuthenticated.PatchAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ForgotPasswordAsync(string email) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/password-reset-requests";
-                ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
-            });
-
-        public Task<BaseResult> ResetPasswordAsync(string email, string resetCode, string newPassword) =>
-            ExecuteAsync(async () =>
-            {
-                string requestUrl = $"{_authBaseUrl}/password-resets";
-                ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
-                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
             });
 
         public Task<BaseResult> LoginAsync(string email, string password) =>
@@ -137,6 +89,54 @@ namespace FinanceApp2.Web.Data
                 await _sessionStorage.RemoveItemAsync("user_email");
 
                 ((CustomAuthStateProvider)_authStateProvider).NotifyUserLogout();
+            });
+
+        public Task<BaseResult> ResendConfirmationEmailAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-confirmation-requests/resend";
+                ResendConfirmationEmailRequest request = new ResendConfirmationEmailRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ConfirmEmailAsync(string userId, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-confirmation-requests/confirm";
+                ConfirmEmailRequest request = new ConfirmEmailRequest(userId, token);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ChangeEmailAsync(string newEmail, string password) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-change-requests";
+                ChangeEmailRequest request = new ChangeEmailRequest(newEmail, password);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ChangeEmailConfirmationAsync(string userId, string newEmail, string token) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/email-change-requests/confirm";
+                ChangeEmailConfirmationRequest request = new ChangeEmailConfirmationRequest(userId, newEmail, token);
+                await _requestHelperAuthenticated.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ForgotPasswordAsync(string email) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/password-reset-requests";
+                ForgotPasswordRequest request = new ForgotPasswordRequest(email);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
+            });
+
+        public Task<BaseResult> ResetPasswordAsync(string email, string resetCode, string newPassword) =>
+            ExecuteAsync(async () =>
+            {
+                string requestUrl = $"{_authBaseUrl}/password-reset-requests/confirm";
+                ResetPasswordRequest request = new ResetPasswordRequest(email, resetCode, newPassword);
+                await _requestHelperPublic.PostAsync(requestUrl, request, false, 9000);
             });
 
         public async Task<bool> IsAuthenticatedAsync()

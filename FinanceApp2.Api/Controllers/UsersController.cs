@@ -1,8 +1,12 @@
 ﻿using FinanceApp2.Api.Errors;
 using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Extensions;
+using FinanceApp2.Api.Helpers;
+using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services.Application;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Errors;
+using FinanceApp2.Shared.Extensions;
+using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -17,112 +21,143 @@ namespace FinanceApp2.Api.Controllers
     public class UsersController : ControllerBaseExtended
     {
         private readonly ILogger<UsersController> _logger;
+        private readonly SessionsLinkHelper _sessionsLinkHelper;
+        private readonly UsersLinkHelper _usersLinkHelper;
+        private readonly EmailConfirmationRequestsLinkHelper _emailConfirmationRequestsLinkHelper;
+        private readonly EmailChangeRequestsLinkHelper _emailChangeRequestsLinkHelper;
         private readonly IAuthAppService _authAppService;
 
         public UsersController(
             ILogger<UsersController> logger,
+            SessionsLinkHelper sessionsLinkHelper,
+            UsersLinkHelper usersLinkHelper,
+            EmailConfirmationRequestsLinkHelper emailConfirmationRequestsLinkHelper,
+            EmailChangeRequestsLinkHelper emailChangeRequestsLinkHelper,
             IAuthAppService authAppService)
         {
             _logger = logger;
+            _sessionsLinkHelper = sessionsLinkHelper;
+            _usersLinkHelper = usersLinkHelper;
+            _emailConfirmationRequestsLinkHelper = emailConfirmationRequestsLinkHelper;
+            _emailChangeRequestsLinkHelper = emailChangeRequestsLinkHelper;
             _authAppService = authAppService;
         }
 
-        [EnableRateLimiting("public-messaging-endpoints")]
+        [EnableRateLimiting("messaging-endpoints-global")]
         [HttpPost]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        public async Task<ActionResult<List<Link>>> Register([FromBody] RegisterRequest request)
         {
-            try
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(UsersController), nameof(Register), correlationId))
             {
-                await _authAppService.RegisterAsync(request.Email, request.Password);
-                return Created();
-            }
-            catch (AuthException ex)
-            {
-                return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(AuthErrorCodes.RegisterUnexpected, ex, "Unexpected error during user registration", new Dictionary<string, string> { });
-                return Problem500();
+                try
+                {
+                    await _authAppService.RegisterAsync(request.Email, request.Password);
+                    return Created((string?)null, new List<Link>
+                    {
+                        _emailConfirmationRequestsLinkHelper.EmailConfirmationRequestsConfirm(),
+                        _emailConfirmationRequestsLinkHelper.EmailConfirmationRequestsResend(),
+                        _sessionsLinkHelper.SessionsLogin()
+                    });
+                }
+                catch (AuthException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _usersLinkHelper.UsersRegister(),
+                        _sessionsLinkHelper.SessionsLogin()
+                    };
+                    return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while registering user. ErrorCode: {ErrorCode}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR);
+                    return Problem500();
+                }
             }
         }
 
         [HttpDelete("me")]
         [Authorize]
-        public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
+        public async Task<ActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
         {
-            string userId = string.Empty;
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(UsersController), nameof(DeleteAccount), correlationId))
+            {
+                string userId = string.Empty;
 
-            try
-            {
-                userId = User.GetUserId().ToString();
-                await _authAppService.DeleteAccountAsync(userId, request.Password);
-                return NoContent();
-            }
-            catch (AuthException ex)
-            {
-                return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(AuthErrorCodes.DeleteAccountUnexpected, ex, "Unexpected error while deleting account", new Dictionary<string, string>
+                try
                 {
-                    { "UserId", userId }
-                });
-                return Problem500();
+                    userId = User.GetUserId().ToString();
+                    await _authAppService.DeleteAccountAsync(userId, request.Password);
+                    return NoContent();
+                }
+                catch (AuthException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _usersLinkHelper.UsersDeleteAccount(),
+                        _sessionsLinkHelper.SessionsLogin()
+                    };
+                    return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while deleting user. ErrorCode: {ErrorCode}, UserId: {UserId}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId);
+                    return Problem500();
+                }
             }
         }
 
         [HttpPatch("me/password")]
         [Authorize]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        public async Task<ActionResult<List<Link>>> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            string userId = string.Empty;
+            string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            using (_logger.BeginLoggingScope(nameof(UsersController), nameof(ChangePassword), correlationId))
+            {
+                string userId = string.Empty;
 
-            try
-            {
-                userId = User.GetUserId().ToString();
-                await _authAppService.ChangePasswordAsync(userId, request.ExistingPassword, request.NewPassword);
-                return NoContent();
-            }
-            catch (AuthException ex)
-            {
-                return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(AuthErrorCodes.ChangePasswordUnexpected, ex, "Unexpected error while changing password", new Dictionary<string, string>
+                try
                 {
-                    { "UserId", userId }
-                });
-                return Problem500();
+                    userId = User.GetUserId().ToString();
+                    await _authAppService.ChangePasswordAsync(userId, request.ExistingPassword, request.NewPassword);
+                    return Ok(new List<Link>
+                    {
+                        _emailChangeRequestsLinkHelper.EmailChangeRequestsSend(),
+                        _usersLinkHelper.UsersDeleteAccount(),
+                        _sessionsLinkHelper.SessionsLogout()
+                    });
+                }
+                catch (AuthException ex)
+                {
+                    var links = new List<Link>
+                    {
+                        _usersLinkHelper.UsersChangePassword(),
+                        _emailChangeRequestsLinkHelper.EmailChangeRequestsSend(),
+                        _usersLinkHelper.UsersDeleteAccount(),
+                        _sessionsLinkHelper.SessionsLogout()
+                    };
+                    return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode, links);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Unexpected error while changing user password. ErrorCode: {ErrorCode}, UserId: {UserId}",
+                        ApiErrorCodes.INTERNAL_SERVER_ERROR,
+                        userId);
+                    return Problem500();
+                }
             }
         }
 
-        [HttpPatch("me/email")]
-        [Authorize]
-        public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailRequest request)
-        {
-            string userId = string.Empty;
-
-            try
-            {
-                userId = User.GetUserId().ToString();
-                await _authAppService.ChangeEmailAsync(userId, request.NewEmail, request.Password);
-                return NoContent();
-            }
-            catch (AuthException ex)
-            {
-                return ProblemWithErrorCode(ex.StatusCode, ex.Message, ex.ErrorCode);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogErrorWithDictionary(AuthErrorCodes.ChangeEmailUnexpected, ex, "Unexpected error while sending change email message", new Dictionary<string, string>
-                {
-                    { "UserId", userId }
-                });
-                return Problem500();
-            }
-        }
     }
 }

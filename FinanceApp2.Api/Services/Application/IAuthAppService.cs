@@ -10,10 +10,10 @@ namespace FinanceApp2.Api.Services.Application
         Task ConfirmEmailAsync(string userId, string token);
         Task DeleteAccountAsync(string userId, string password);
         Task ForgotPasswordAsync(string email);
-        Task<AuthResponse> LoginAsync(string email, string password);
+        Task<(AuthResponse authResponse, string refreshTokenString)> LoginAsync(string email, string password);
         Task<string> CreateRefreshTokenAsync(string userId);
-        Task LogoutAsync(string refreshTokenString);
-        Task<AuthResponse> RefreshTokenAsync(string refreshTokenString);
+        Task RevokeRefreshTokenAsync(string refreshTokenString);
+        Task<(AuthResponse authResponse, string newRefreshTokenString)> RotateRefreshTokenAsync(string? refreshTokenString);
         Task RegisterAsync(string email, string password);
         Task ResendConfirmationEmailAsync(string email);
         Task ResetPasswordAsync(string email, string resetCode, string newPassword);

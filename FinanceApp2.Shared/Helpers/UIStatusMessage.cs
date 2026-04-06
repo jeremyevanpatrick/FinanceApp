@@ -1,4 +1,6 @@
-﻿namespace FinanceApp2.Shared.Helpers
+﻿using FinanceApp2.Shared.Enums;
+
+namespace FinanceApp2.Shared.Helpers
 {
     public class UIStatusMessage
     {

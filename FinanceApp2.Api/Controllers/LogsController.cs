@@ -1,24 +1,37 @@
-﻿using FinanceApp2.Api.Services;
-using FinanceApp2.Shared.Models;
+﻿using FinanceApp2.Shared.Models;
+using FinanceApp2.Shared.Services.Queues;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceApp2.Api.Controllers
 {
     [ApiController]
-    [Route("error-logs")]
+    [Route("application-logs")]
     public class LogsController : ControllerBase
     {
-        private readonly ErrorLogQueue _errorLogQueue;
+        private readonly ILogProcessorQueue _logProcessorQueue;
 
-        public LogsController(ErrorLogQueue errorLogQueue)
+        public LogsController(ILogProcessorQueue logProcessorQueue)
         {
-            _errorLogQueue = errorLogQueue;
+            _logProcessorQueue = logProcessorQueue;
         }
 
         [HttpPost]
-        public async Task<IActionResult> LogError([FromBody] Error error)
+        public async Task<IActionResult> Log([FromBody] ApplicationLog applicationLog)
         {
-            _errorLogQueue.Enqueue(error);
+            _logProcessorQueue.Enqueue(applicationLog);
+            return Accepted();
+        }
+
+        [HttpPost("batch")]
+        public async Task<IActionResult> LogBatch([FromBody] List<ApplicationLog> applicationLogs)
+        {
+            if (applicationLogs != null)
+            {
+                foreach (var applicationLog in applicationLogs)
+                {
+                    _logProcessorQueue.Enqueue(applicationLog);
+                }
+            }
             return Accepted();
         }
     }

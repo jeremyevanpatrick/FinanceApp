@@ -1,7 +1,10 @@
 ﻿using FinanceApp2.Api.Controllers;
 using FinanceApp2.Api.Exceptions;
+using FinanceApp2.Api.Helpers;
 using FinanceApp2.Api.Services.Application;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Api.Tests.Helpers;
+using FinanceApp2.Shared.Errors;
+using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.Requests;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -9,6 +12,7 @@ using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Shared.Services.Responses;
 using System.Security.Claims;
 
 namespace FinanceApp2.Api.Tests.Controllers
@@ -17,8 +21,24 @@ namespace FinanceApp2.Api.Tests.Controllers
     {
         private static UsersController CreateController(Mock<IAuthAppService> mockService)
         {
+            var mockLinkGenerator1 = TestHelpers.CreateLinkGeneratorMock();
+            var mockSessionsLinkHelper = new SessionsLinkHelper(mockLinkGenerator1.Object);
+
+            var mockLinkGenerator2 = TestHelpers.CreateLinkGeneratorMock();
+            var mockUsersLinkHelper = new UsersLinkHelper(mockLinkGenerator2.Object);
+
+            var mockLinkGenerator3 = TestHelpers.CreateLinkGeneratorMock();
+            var mockEmailConfirmationRequestsLinkHelper = new EmailConfirmationRequestsLinkHelper(mockLinkGenerator3.Object);
+
+            var mockLinkGenerator4 = TestHelpers.CreateLinkGeneratorMock();
+            var mockEmailChangeRequestsLinkHelper = new EmailChangeRequestsLinkHelper(mockLinkGenerator4.Object);
+
             var controller = new UsersController(
                 Mock.Of<ILogger<UsersController>>(),
+                mockSessionsLinkHelper,
+                mockUsersLinkHelper,
+                mockEmailConfirmationRequestsLinkHelper,
+                mockEmailChangeRequestsLinkHelper,
                 mockService.Object);
 
             controller.ControllerContext = new ControllerContext()
@@ -31,8 +51,24 @@ namespace FinanceApp2.Api.Tests.Controllers
 
         private static UsersController CreateControllerWithUser(Guid userId, Mock<IAuthAppService> mockService)
         {
+            var mockLinkGenerator1 = TestHelpers.CreateLinkGeneratorMock();
+            var mockSessionsLinkHelper = new SessionsLinkHelper(mockLinkGenerator1.Object);
+
+            var mockLinkGenerator2 = TestHelpers.CreateLinkGeneratorMock();
+            var mockUsersLinkHelper = new UsersLinkHelper(mockLinkGenerator2.Object);
+
+            var mockLinkGenerator3 = TestHelpers.CreateLinkGeneratorMock();
+            var mockEmailConfirmationRequestsLinkHelper = new EmailConfirmationRequestsLinkHelper(mockLinkGenerator3.Object);
+
+            var mockLinkGenerator4 = TestHelpers.CreateLinkGeneratorMock();
+            var mockEmailChangeRequestsLinkHelper = new EmailChangeRequestsLinkHelper(mockLinkGenerator4.Object);
+
             var controller = new UsersController(
                 Mock.Of<ILogger<UsersController>>(),
+                mockSessionsLinkHelper,
+                mockUsersLinkHelper,
+                mockEmailConfirmationRequestsLinkHelper,
+                mockEmailChangeRequestsLinkHelper,
                 mockService.Object);
 
             var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
@@ -61,7 +97,19 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Register(request);
 
             //Assert
-            result.Should().BeOfType<CreatedResult>();
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<CreatedResult>()
+                .Subject;
+
+            var links = httpResult
+                .Value
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -72,7 +120,7 @@ namespace FinanceApp2.Api.Tests.Controllers
 
             mockService
                 .Setup(s => s.RegisterAsync(It.IsAny<string>(), It.IsAny<string>()))
-                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS));
+                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ApiErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS));
 
             var controller = CreateController(mockService);
 
@@ -81,11 +129,31 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Register(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(400);
-            result.Should().BeOfType<ObjectResult>()
-                .Which.Value.Should().BeOfType<ProblemDetails>()
-                .Which.Extensions["errorCode"].Should().Be(ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS.ToString());
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(400);
+
+            var errorCode = apiErrorResponse.ErrorCode
+                .Should()
+                .BeAssignableTo<string>()
+                .Subject;
+
+            errorCode.Should().Be(ApiErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS.ToString());
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -105,12 +173,12 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Register(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 
         [Fact]
-        public async Task ChangePassword_ValidRequest_ReturnsNoContentResult()
+        public async Task ChangePassword_ValidRequest_ReturnsOkObjectResult()
         {
             //Arrange
             var userId = Guid.NewGuid();
@@ -123,7 +191,19 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.ChangePassword(request);
 
             //Assert
-            result.Should().BeOfType<NoContentResult>();
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<OkObjectResult>()
+                .Subject;
+
+            var links = httpResult
+                .Value
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -135,7 +215,7 @@ namespace FinanceApp2.Api.Tests.Controllers
 
             mockService
                 .Setup(s => s.ChangePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ResponseErrorCodes.AUTH_NO_LONGER_VALID));
+                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS));
 
             var controller = CreateControllerWithUser(userId, mockService);
 
@@ -144,11 +224,31 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.ChangePassword(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(400);
-            result.Should().BeOfType<ObjectResult>()
-                .Which.Value.Should().BeOfType<ProblemDetails>()
-                .Which.Extensions["errorCode"].Should().Be(ResponseErrorCodes.AUTH_NO_LONGER_VALID.ToString());
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(401);
+
+            var errorCode = apiErrorResponse.ErrorCode
+                .Should()
+                .BeAssignableTo<string>()
+                .Subject;
+
+            errorCode.Should().Be(ApiErrorCodes.INVALID_CREDENTIALS.ToString());
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -169,71 +269,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.ChangePassword(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(500);
-        }
-
-        [Fact]
-        public async Task ChangeEmail_ValidRequest_ReturnsNoContentResult()
-        {
-            //Arrange
-            var userId = Guid.NewGuid();
-            var mockService = new Mock<IAuthAppService>();
-
-            var controller = CreateControllerWithUser(userId, mockService);
-
-            //Act
-            var request = new ChangeEmailRequest("test", "test");
-            var result = await controller.ChangeEmail(request);
-
-            //Assert
-            result.Should().BeOfType<NoContentResult>();
-        }
-
-        [Fact]
-        public async Task ChangeEmail_NotFound_Returns400Result()
-        {
-            //Arrange
-            var userId = Guid.NewGuid();
-            var mockService = new Mock<IAuthAppService>();
-
-            mockService
-                .Setup(s => s.ChangeEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ResponseErrorCodes.AUTH_NO_LONGER_VALID));
-
-            var controller = CreateControllerWithUser(userId, mockService);
-
-            //Act
-            var request = new ChangeEmailRequest("test", "test");
-            var result = await controller.ChangeEmail(request);
-
-            //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(400);
-            result.Should().BeOfType<ObjectResult>()
-                .Which.Value.Should().BeOfType<ProblemDetails>()
-                .Which.Extensions["errorCode"].Should().Be(ResponseErrorCodes.AUTH_NO_LONGER_VALID.ToString());
-        }
-
-        [Fact]
-        public async Task ChangeEmail_InternalError_Returns500Result()
-        {
-            //Arrange
-            var userId = Guid.NewGuid();
-            var mockService = new Mock<IAuthAppService>();
-
-            mockService
-                .Setup(s => s.ChangeEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ThrowsAsync(new Exception("Test error"));
-
-            var controller = CreateControllerWithUser(userId, mockService);
-
-            //Act
-            var request = new ChangeEmailRequest("test", "test");
-            var result = await controller.ChangeEmail(request);
-
-            //Assert
-            result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 
@@ -243,6 +279,9 @@ namespace FinanceApp2.Api.Tests.Controllers
             //Arrange
             var userId = Guid.NewGuid();
             var mockService = new Mock<IAuthAppService>();
+            mockService
+                .Setup(s => s.DeleteAccountAsync(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(Task.CompletedTask);
 
             var controller = CreateControllerWithUser(userId, mockService);
 
@@ -263,7 +302,7 @@ namespace FinanceApp2.Api.Tests.Controllers
 
             mockService
                 .Setup(s => s.DeleteAccountAsync(It.IsAny<string>(), It.IsAny<string>()))
-                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ResponseErrorCodes.AUTH_NO_LONGER_VALID));
+                .ThrowsAsync(new AuthException("Test error", StatusCodes.Status400BadRequest, ApiErrorCodes.AUTH_NO_LONGER_VALID));
 
             var controller = CreateControllerWithUser(userId, mockService);
 
@@ -272,11 +311,30 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.DeleteAccount(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(400);
-            result.Should().BeOfType<ObjectResult>()
-                .Which.Value.Should().BeOfType<ProblemDetails>()
-                .Which.Extensions["errorCode"].Should().Be(ResponseErrorCodes.AUTH_NO_LONGER_VALID.ToString());
+            var apiErrorResponse = result!
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(400);
+
+            var errorCode = apiErrorResponse.ErrorCode
+                .Should()
+                .BeAssignableTo<string>()
+                .Subject;
+
+            errorCode.Should().Be(ApiErrorCodes.AUTH_NO_LONGER_VALID.ToString());
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -297,7 +355,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.DeleteAccount(request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
+            result!.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 

@@ -4,6 +4,8 @@ using FinanceApp2.Api.Models;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace FinanceApp2.Api.Tests.Repositories
 {
@@ -60,7 +62,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             var result = await repo.GetSoftDeletedUsersAsync(1);
@@ -82,24 +84,30 @@ namespace FinanceApp2.Api.Tests.Repositories
             {
                 TokenHash = "Hash1",
                 UserId = userId,
-                IsRevoked = true
+                IsRevoked = true,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = "Hash2",
                 UserId = userId,
-                IsRevoked = false
+                IsRevoked = false,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = "Hash3",
                 UserId = Guid.NewGuid().ToString(),
-                IsRevoked = true
+                IsRevoked = true,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
 
             await db.SaveChangesAsync();
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             var result = await repo.GetUserRefreshTokensAsync(userId);
@@ -120,22 +128,28 @@ namespace FinanceApp2.Api.Tests.Repositories
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = "Hash1",
-                UserId = Guid.NewGuid().ToString()
+                UserId = Guid.NewGuid().ToString(),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = testHash,
-                UserId = Guid.NewGuid().ToString()
+                UserId = Guid.NewGuid().ToString(),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = "Hash3",
-                UserId = Guid.NewGuid().ToString()
+                UserId = Guid.NewGuid().ToString(),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
 
             await db.SaveChangesAsync();
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             var result = await repo.GetRefreshTokenAsync(testHash);
@@ -156,10 +170,12 @@ namespace FinanceApp2.Api.Tests.Repositories
             var tokenToAdd = new RefreshToken
             {
                 TokenHash = testHash,
-                UserId = Guid.NewGuid().ToString()
+                UserId = Guid.NewGuid().ToString(),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             };
             
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             await repo.AddRefreshTokenAsync(tokenToAdd);
@@ -184,7 +200,9 @@ namespace FinanceApp2.Api.Tests.Repositories
             db.RefreshTokens.Add(new RefreshToken
             {
                 TokenHash = testHash,
-                UserId = userId
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             });
 
             await db.SaveChangesAsync();
@@ -192,10 +210,12 @@ namespace FinanceApp2.Api.Tests.Repositories
             var tokenToAdd = new RefreshToken
             {
                 TokenHash = testHash,
-                UserId = userId
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             };
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.AddRefreshTokenAsync(tokenToAdd);
@@ -215,7 +235,9 @@ namespace FinanceApp2.Api.Tests.Repositories
                 Id = 1,
                 TokenHash = "Hash1",
                 UserId = Guid.NewGuid().ToString(),
-                IsRevoked = false
+                IsRevoked = false,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             };
 
             db.RefreshTokens.Add(token);
@@ -225,7 +247,7 @@ namespace FinanceApp2.Api.Tests.Repositories
             token!.IsRevoked = true;
             token.RevokedAt = DateTime.UtcNow;
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             await repo.UpdateRefreshTokenAsync(token);
@@ -251,7 +273,9 @@ namespace FinanceApp2.Api.Tests.Repositories
                 Id = 2,
                 TokenHash = "Hash2",
                 UserId = userId,
-                IsRevoked = false
+                IsRevoked = false,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             };
 
             var tokenList = new List<RefreshToken> {
@@ -259,14 +283,18 @@ namespace FinanceApp2.Api.Tests.Repositories
                     Id = 1,
                     TokenHash = "Hash1",
                     UserId = userId,
-                    IsRevoked = false
+                    IsRevoked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1)
                 },
                 token2,
                 new RefreshToken {
                     Id = 3,
                     TokenHash = "Hash3",
                     UserId = Guid.NewGuid().ToString(),
-                    IsRevoked = false
+                    IsRevoked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1)
                 }
             };
 
@@ -281,7 +309,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 token2
             };
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             await repo.UpdateRefreshTokenRangeAsync(tokenListToUpdate);
@@ -307,7 +335,9 @@ namespace FinanceApp2.Api.Tests.Repositories
                 Id = 2,
                 TokenHash = "Hash2",
                 UserId = userId,
-                IsRevoked = false
+                IsRevoked = false,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
             };
 
             var tokenList = new List<RefreshToken> {
@@ -315,14 +345,18 @@ namespace FinanceApp2.Api.Tests.Repositories
                     Id = 1,
                     TokenHash = "Hash1",
                     UserId = userId,
-                    IsRevoked = false
+                    IsRevoked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1)
                 },
                 token2,
                 new RefreshToken {
                     Id = 3,
                     TokenHash = "Hash3",
                     UserId = Guid.NewGuid().ToString(),
-                    IsRevoked = false
+                    IsRevoked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1)
                 }
             };
 
@@ -339,11 +373,13 @@ namespace FinanceApp2.Api.Tests.Repositories
                     Id = 4,
                     TokenHash = "Hash4",
                     UserId = userId,
-                    IsRevoked = true
+                    IsRevoked = true,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1)
                 }
             };
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.UpdateRefreshTokenRangeAsync(tokenListToUpdate);
@@ -365,20 +401,23 @@ namespace FinanceApp2.Api.Tests.Repositories
                     Id = 1,
                     TokenHash = "Hash1",
                     UserId = userId,
-                    ExpiresAt = DateTime.UtcNow.AddDays(1)
+                    ExpiresAt = DateTime.UtcNow.AddDays(1),
+                    CreatedAt = DateTime.UtcNow
                 },
                 new RefreshToken
                 {
                     Id = 2,
                     TokenHash = "Hash2",
                     UserId = userId,
-                    ExpiresAt = DateTime.UtcNow.AddDays(-10)
+                    ExpiresAt = DateTime.UtcNow.AddDays(-10),
+                    CreatedAt = DateTime.UtcNow
                 },
                 new RefreshToken {
                     Id = 3,
                     TokenHash = "Hash3",
                     UserId = Guid.NewGuid().ToString(),
-                    ExpiresAt = DateTime.UtcNow
+                    ExpiresAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
                 }
             };
 
@@ -386,7 +425,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new AuthRepository(db);
+            var repo = new AuthRepository(Mock.Of<ILogger<AuthRepository>>(), db);
 
             // Act
             await repo.DeleteRefreshTokensExpiredByDaysAsync(1);

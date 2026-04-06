@@ -25,12 +25,12 @@ namespace FinanceApp2.Web.Data
             _apiBaseUrl = applicationSettings.Value.ApiBaseUrl;
         }
 
-        public Task<BaseResult<BudgetContainer?>> GetBudgetAsync(int year, int month) =>
+        public Task<BaseResult<BudgetContainerDto?>> GetBudgetAsync(int year, int month) =>
             ExecuteAsync(async () =>
             {
                 string requestUrl = $"{_apiBaseUrl}/budgets/{year}/{month}";
 
-                return await _requestHelper.GetAsync<BudgetContainer>(requestUrl, false, 9000);
+                return await _requestHelper.GetAsync<BudgetContainerDto>(requestUrl, false, 9000);
             });
 
         public Task<BaseResult<BudgetDto?>> CreateBudgetAsync(DateOnly newBudgetDate, DateOnly? sourceBudgetDate = null) =>

@@ -1,7 +1,9 @@
-﻿using FinanceApp2.Shared.Helpers;
+﻿using FinanceApp2.Shared.Enums;
+using FinanceApp2.Shared.Exceptions;
+using FinanceApp2.Shared.Extensions;
 using FinanceApp2.Shared.Services.DTOs;
+using FinanceApp2.Web.Errors;
 using FinanceApp2.Web.Services;
-using FinanceApp2.Web.Helpers;
 using Microsoft.AspNetCore.Components;
 
 namespace FinanceApp2.Web.Data
@@ -40,7 +42,10 @@ namespace FinanceApp2.Web.Data
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary(WebErrorCodes.ClientUnexpected, ex, "Unexpected error in client");
+                _logger.LogError(
+                    ex,
+                    "Unexpected error in client. ErrorCode: {ErrorCode}",
+                    WebErrorCodes.CLIENT_UNEXPECTED_ERROR);
                 return new BaseResult<T>(false, WebErrorMessages.UnknownError);
             }
         }
@@ -63,7 +68,10 @@ namespace FinanceApp2.Web.Data
             }
             catch (Exception ex)
             {
-                _logger.LogErrorWithDictionary(WebErrorCodes.ClientUnexpected, ex, "Unexpected error in client");
+                _logger.LogError(
+                    ex,
+                    "Unexpected error in client. ErrorCode: {ErrorCode}",
+                    WebErrorCodes.CLIENT_UNEXPECTED_ERROR);
                 return new BaseResult(false, WebErrorMessages.UnknownError);
             }
         }

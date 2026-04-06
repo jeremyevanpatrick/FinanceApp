@@ -4,7 +4,7 @@ namespace FinanceApp2.Api.Services.Application
 {
     public interface IBudgetAppService
     {
-        public Task<BudgetContainer> GetByDateAsync(Guid userId, int month, int year);
+        public Task<BudgetContainerDto> GetByDateAsync(Guid userId, int month, int year);
 
         public Task<BudgetDto> CreateAsync(Guid userId, int newBudgetMonth, int newBudgetYear, int? sourceBudgetMonth, int? sourceBudgetYear);
 

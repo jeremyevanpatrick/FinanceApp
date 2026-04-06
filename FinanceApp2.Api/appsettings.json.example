@@ -5,12 +5,20 @@
   },
   "RemoteLogging": {
     "ApplicationName": "FinanceApp2.Api",
-    "Endpoint": "https://localhost:7169/error-logs"
+    "Endpoint": "https://localhost:7169/application-logs/batch"
   },
   "Logging": {
     "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
+      "Default": "Error",
+      "Microsoft": "Error",
+      "System": "Error",
+      "FinanceApp2": "Information"
+    },
+    "Console": {
+      "IncludeScopes": true
+    },
+    "Debug": {
+      "IncludeScopes": true
     }
   },
   "Client": {
@@ -32,7 +40,10 @@
     "FromName": "FinanceApp2"
   },
   "DataCleanup": {
-    "OlderThanDays": 30,
+    "PurgeSoftDeletedAfterDays": 30,
+    "PurgeTokensAfterDays": 1,
+    "PurgeInfoLogsAfterDays": 1,
+    "PurgeErrorLogsAfterDays": 7,
     "ScheduledHour": 3
   },
   "AllowedHosts": "*"

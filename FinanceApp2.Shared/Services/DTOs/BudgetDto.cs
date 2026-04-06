@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using FinanceApp2.Shared.Models;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace FinanceApp2.Shared.Services.DTOs
 {
-    public class BudgetDto
+    public class BudgetDto : Resource
     {
         [Required]
         public Guid BudgetId { get; set; }

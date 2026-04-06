@@ -28,8 +28,4 @@
     <ProjectReference Include="..\FinanceApp2.Shared\FinanceApp2.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Data\Migrations\" />
-  </ItemGroup>
-
 </Project>

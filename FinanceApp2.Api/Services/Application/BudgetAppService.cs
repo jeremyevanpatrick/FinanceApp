@@ -4,174 +4,190 @@ using FinanceApp2.Api.Models;
 using FinanceApp2.Shared.Helpers;
 using FinanceApp2.Shared.Services.DTOs;
 using Microsoft.EntityFrameworkCore;
+using FinanceApp2.Shared.Extensions;
 
 namespace FinanceApp2.Api.Services.Application
 {
     public class BudgetAppService : IBudgetAppService
     {
+        private readonly ILogger<BudgetAppService> _logger;
         private readonly IBudgetRepository _budgetRepository;
 
         public BudgetAppService(
+            ILogger<BudgetAppService> logger,
             IBudgetRepository budgetRepository)
         {
+            _logger = logger;
             _budgetRepository = budgetRepository;
         }
 
-        public async Task<BudgetContainer> GetByDateAsync(Guid userId, int month, int year)
+        public async Task<BudgetContainerDto> GetByDateAsync(Guid userId, int month, int year)
         {
-            DateOnly requestedDate = new DateOnly(year, month, 1);
-            DateOnly previousMonthDate = requestedDate.AddMonths(-1);
-            DateOnly nextMonthDate = requestedDate.AddMonths(1);
-
-            Budget? budget = await _budgetRepository.GetByDateAsync(userId, month, year);
-            bool hasPreviousMonth = await _budgetRepository.GetExistsByDateAsync(userId, previousMonthDate.Month, previousMonthDate.Year);
-            bool hasNextMonth = await _budgetRepository.GetExistsByDateAsync(userId, nextMonthDate.Month, nextMonthDate.Year);
-
-            BudgetContainer budgetContainer = new BudgetContainer()
+            using (_logger.BeginLoggingScope(nameof(BudgetAppService), nameof(GetByDateAsync)))
             {
-                Budget = BudgetMapper.ToDto(budget),
-                HasPreviousMonth = hasPreviousMonth,
-                HasNextMonth = hasNextMonth
-            };
+                DateOnly requestedDate = new DateOnly(year, month, 1);
+                DateOnly previousMonthDate = requestedDate.AddMonths(-1);
+                DateOnly nextMonthDate = requestedDate.AddMonths(1);
 
-            return budgetContainer;
+                Budget? budget = await _budgetRepository.GetByDateAsync(userId, month, year);
+                bool hasPreviousMonth = await _budgetRepository.GetExistsByDateAsync(userId, previousMonthDate.Month, previousMonthDate.Year);
+                bool hasNextMonth = await _budgetRepository.GetExistsByDateAsync(userId, nextMonthDate.Month, nextMonthDate.Year);
+
+                BudgetContainerDto budgetContainer = new BudgetContainerDto()
+                {
+                    Budget = BudgetMapper.ToDto(budget),
+                    HasPreviousMonth = hasPreviousMonth,
+                    HasNextMonth = hasNextMonth
+                };
+
+                return budgetContainer;
+            }
         }
 
         public async Task<BudgetDto> CreateAsync(Guid userId, int newBudgetMonth, int newBudgetYear, int? sourceBudgetMonth, int? sourceBudgetYear)
         {
-            Budget? existingBudget = await _budgetRepository.GetByDateAsync(userId, newBudgetMonth, newBudgetYear);
-
-            if (existingBudget != null)
+            using (_logger.BeginLoggingScope(nameof(BudgetAppService), nameof(CreateAsync)))
             {
-                throw new BudgetConflictException($"Budget for {newBudgetMonth}/{newBudgetYear} already exists.");
-            }
+                Budget? existingBudget = await _budgetRepository.GetByDateAsync(userId, newBudgetMonth, newBudgetYear);
 
-            Budget newBudget = new Budget
-            {
-                Month = newBudgetMonth,
-                Year = newBudgetYear,
-                UserId = userId,
-                Income = 0,
-                Groups = new List<Group>(),
-                ModifiedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            if (sourceBudgetMonth != null && sourceBudgetYear != null)
-            {
-                //if source fields are included in the request, clone contents from the source budget
-                Budget? sourceBudget = await _budgetRepository.GetByDateAsync(userId, (int)sourceBudgetMonth, (int)sourceBudgetYear);
-
-                if (sourceBudget == null)
+                if (existingBudget != null)
                 {
-                    throw new NotFoundException("Source budget");
+                    throw new BudgetConflictException($"Budget for {newBudgetMonth}/{newBudgetYear} already exists.");
                 }
 
-                newBudget.Groups = sourceBudget.Groups.Select(g =>
+                Budget newBudget = new Budget
                 {
-                    Group newGroup = new Group
-                    {
-                        BudgetId = newBudget.BudgetId,
-                        Budget = newBudget,
-                        GroupName = g.GroupName,
-                        Order = g.Order,
-                        CreatedAt = DateTime.UtcNow,
-                        ModifiedAt = DateTime.UtcNow
-                    };
+                    Month = newBudgetMonth,
+                    Year = newBudgetYear,
+                    UserId = userId,
+                    Income = 0,
+                    Groups = new List<Group>(),
+                    ModifiedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-                    newGroup.Items = g.Items.Select(i => new Item
+                if (sourceBudgetMonth != null && sourceBudgetYear != null)
+                {
+                    //if source fields are included in the request, clone contents from the source budget
+                    Budget? sourceBudget = await _budgetRepository.GetByDateAsync(userId, (int)sourceBudgetMonth, (int)sourceBudgetYear);
+
+                    if (sourceBudget == null)
                     {
-                        GroupId = newGroup.GroupId,
-                        ItemName = i.ItemName,
-                        Budgeted = i.Budgeted,
-                        Group = newGroup,
-                        CreatedAt = DateTime.UtcNow,
-                        ModifiedAt = DateTime.UtcNow
+                        throw new NotFoundException("Source budget");
+                    }
+
+                    newBudget.Groups = sourceBudget.Groups.Select(g =>
+                    {
+                        Group newGroup = new Group
+                        {
+                            BudgetId = newBudget.BudgetId,
+                            Budget = newBudget,
+                            GroupName = g.GroupName,
+                            Order = g.Order,
+                            CreatedAt = DateTime.UtcNow,
+                            ModifiedAt = DateTime.UtcNow
+                        };
+
+                        newGroup.Items = g.Items.Select(i => new Item
+                        {
+                            GroupId = newGroup.GroupId,
+                            ItemName = i.ItemName,
+                            Budgeted = i.Budgeted,
+                            Group = newGroup,
+                            CreatedAt = DateTime.UtcNow,
+                            ModifiedAt = DateTime.UtcNow
+                        }).ToList();
+
+                        return newGroup;
                     }).ToList();
+                }
 
-                    return newGroup;
-                }).ToList();
+                await _budgetRepository.CreateAsync(newBudget);
+
+                return BudgetMapper.ToDto(newBudget);
             }
-
-            await _budgetRepository.CreateAsync(newBudget);
-
-            return BudgetMapper.ToDto(newBudget);
         }
 
         public async Task UpdateAsync(Guid userId, int month, int year, int? updatedIncome, List<GroupDto> updatedGroups)
         {
-            Budget? existingBudget = await _budgetRepository.GetByDateAsync(userId, year, month);
-
-            if (existingBudget == null)
+            using (_logger.BeginLoggingScope(nameof(BudgetAppService), nameof(UpdateAsync)))
             {
-                throw new NotFoundException("year/month");
-            }
+                Budget? existingBudget = await _budgetRepository.GetByDateIncludingDeletedAsync(userId, month, year);
 
-            List<Group> groupsToAdd = new List<Group>();
-            List<Item> itemsToAdd = new List<Item>();
-
-            foreach (var updatedGroup in updatedGroups)
-            {
-                Group? existingGroup = existingBudget.Groups.FirstOrDefault(g => g.GroupId == updatedGroup.GroupId);
-                if (existingGroup == null)
+                if (existingBudget == null)
                 {
-                    groupsToAdd.Add(BudgetMapper.ToEntity(updatedGroup));
+                    throw new NotFoundException("year/month");
                 }
-                else
-                {
-                    existingGroup.GroupName = updatedGroup.GroupName;
-                    existingGroup.Order = updatedGroup.Order;
-                    existingGroup.IsDeleted = updatedGroup.IsDeleted;
-                    existingGroup.ModifiedAt = DateTime.UtcNow;
 
-                    foreach (var updatedItem in updatedGroup.Items)
+                List<Group> groupsToAdd = new List<Group>();
+                List<Item> itemsToAdd = new List<Item>();
+
+                foreach (var updatedGroup in updatedGroups)
+                {
+                    Group? existingGroup = existingBudget.Groups.FirstOrDefault(g => g.GroupId == updatedGroup.GroupId);
+                    if (existingGroup == null)
                     {
-                        Item? existingItem = existingGroup.Items.FirstOrDefault(i => i.ItemId == updatedItem.ItemId);
-                        if (existingItem == null)
+                        groupsToAdd.Add(BudgetMapper.ToEntity(updatedGroup));
+                    }
+                    else
+                    {
+                        existingGroup.GroupName = updatedGroup.GroupName;
+                        existingGroup.Order = updatedGroup.Order;
+                        existingGroup.IsDeleted = updatedGroup.IsDeleted;
+                        existingGroup.ModifiedAt = DateTime.UtcNow;
+
+                        foreach (var updatedItem in updatedGroup.Items)
                         {
-                            itemsToAdd.Add(BudgetMapper.ToEntity(updatedItem));
-                        }
-                        else
-                        {
-                            existingItem.ItemName = updatedItem.ItemName;
-                            existingItem.Spent = updatedItem.Spent;
-                            existingItem.Budgeted = updatedItem.Budgeted;
-                            existingItem.IsDeleted = updatedItem.IsDeleted;
-                            existingItem.ModifiedAt = DateTime.UtcNow;
+                            Item? existingItem = existingGroup.Items.FirstOrDefault(i => i.ItemId == updatedItem.ItemId);
+                            if (existingItem == null)
+                            {
+                                itemsToAdd.Add(BudgetMapper.ToEntity(updatedItem));
+                            }
+                            else
+                            {
+                                existingItem.ItemName = updatedItem.ItemName;
+                                existingItem.Spent = updatedItem.Spent;
+                                existingItem.Budgeted = updatedItem.Budgeted;
+                                existingItem.IsDeleted = updatedItem.IsDeleted;
+                                existingItem.ModifiedAt = DateTime.UtcNow;
+                            }
                         }
                     }
                 }
+
+                if (groupsToAdd.Any())
+                {
+                    await _budgetRepository.CreateGroupsAsync(groupsToAdd);
+                }
+
+                if (itemsToAdd.Any())
+                {
+                    await _budgetRepository.CreateItemsAsync(itemsToAdd);
+                }
+
+                existingBudget.Income = updatedIncome ?? 0;
+                existingBudget.ModifiedAt = DateTime.UtcNow;
+
+                await _budgetRepository.UpdateAsync(existingBudget);
             }
-
-            if (groupsToAdd.Any())
-            {
-                await _budgetRepository.CreateGroupsAsync(groupsToAdd);
-            }
-
-            if (itemsToAdd.Any())
-            {
-                await _budgetRepository.CreateItemsAsync(itemsToAdd);
-            }
-
-            existingBudget.Income = updatedIncome ?? 0;
-            existingBudget.ModifiedAt = DateTime.UtcNow;
-
-            await _budgetRepository.UpdateAsync(existingBudget);
         }
 
         public async Task DeleteAsync(Guid userId, int year, int month)
         {
-            Budget? existingBudget = await _budgetRepository.GetByDateAsync(userId, year, month);
-
-            if (existingBudget == null)
+            using (_logger.BeginLoggingScope(nameof(BudgetAppService), nameof(DeleteAsync)))
             {
-                throw new NotFoundException("year/month");
+                Budget? existingBudget = await _budgetRepository.GetByDateAsync(userId, month, year);
+
+                if (existingBudget == null)
+                {
+                    throw new NotFoundException("year/month");
+                }
+
+                existingBudget.IsDeleted = true;
+                existingBudget.ModifiedAt = DateTime.UtcNow;
+
+                await _budgetRepository.UpdateAsync(existingBudget);
             }
-
-            existingBudget.IsDeleted = true;
-            existingBudget.ModifiedAt = DateTime.UtcNow;
-
-            await _budgetRepository.UpdateAsync(existingBudget);
         }
 
     }

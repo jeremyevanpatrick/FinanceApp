@@ -18,22 +18,47 @@ public class AuthDbContext : IdentityDbContext<ApplicationUser>
         base.OnModelCreating(modelBuilder);
 
         // Application user configuration
-        modelBuilder.Entity<ApplicationUser>()
-            .HasQueryFilter(u => !u.IsDeleted);
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.HasQueryFilter(u => !u.IsDeleted);
+
+            entity.Property(u => u.IsDeleted)
+                .IsRequired();
+
+            entity.Property(u => u.DeletedAt)
+                .IsRequired(false);
+        });
 
         // Refresh token configuration
         modelBuilder.Entity<RefreshToken>(entity =>
         {
-            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasKey(t => t.Id);
 
-            entity.HasIndex(t => new { t.UserId, t.IsRevoked });
+            entity.HasIndex(t => t.TokenHash)
+                .IsUnique();
 
-            entity.HasIndex(t => t.ExpiresAt);
+            entity.HasIndex(t => t.UserId);
 
-            entity.Property(t => t.TokenHash).IsRequired();
-            entity.Property(t => t.UserId).IsRequired();
-            entity.Property(t => t.ExpiresAt).IsRequired();
-            entity.Property(t => t.CreatedAt).IsRequired();
+            entity.Property(t => t.TokenHash)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(t => t.UserId)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(t => t.CreatedAt)
+                .IsRequired();
+
+            entity.Property(t => t.ExpiresAt)
+                .IsRequired();
+
+            entity.Property(t => t.IsRevoked)
+                .IsRequired();
+
+            entity.Property(t => t.RevokedAt)
+                .IsRequired(false);
+
         });
     }
 

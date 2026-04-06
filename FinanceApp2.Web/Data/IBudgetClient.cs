@@ -4,7 +4,7 @@ namespace FinanceApp2.Web.Data
 {
     public interface IBudgetClient
     {
-        Task<BaseResult<BudgetContainer?>> GetBudgetAsync(int year, int month);
+        Task<BaseResult<BudgetContainerDto?>> GetBudgetAsync(int year, int month);
 
         Task<BaseResult<BudgetDto?>> CreateBudgetAsync(DateOnly newBudgetDate, DateOnly? sourceBudgetDate = null);
 

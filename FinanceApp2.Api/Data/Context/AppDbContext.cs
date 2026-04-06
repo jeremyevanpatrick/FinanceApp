@@ -22,13 +22,25 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Budget>(entity =>
         {
             entity.HasKey(e => e.BudgetId);
-            entity.Property(e => e.BudgetId).HasMaxLength(36);
-            entity.Property(e => e.Month).HasMaxLength(2).IsRequired();
-            entity.Property(e => e.Year).HasMaxLength(2).IsRequired();
-            entity.Property(e => e.UserId).HasMaxLength(36).IsRequired();
-            entity.Property(e => e.Income).HasColumnType("decimal(18,2)");
 
-            entity.HasIndex(e => new { e.UserId, e.Year, e.Month }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.Property(e => e.Month)
+                .IsRequired();
+
+            entity.Property(e => e.Year)
+                .IsRequired();
+
+            entity.Property(e => e.UserId)
+                .IsRequired();
+
+            entity.Property(e => e.ModifiedAt)
+                .IsRequired(false);
+
+            entity.Property(e => e.IsDeleted)
+                .IsRequired();
+
+            entity.HasIndex(e => new { e.UserId, e.Year, e.Month })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
 
             entity.HasMany(e => e.Groups)
                 .WithOne(e => e.Budget)
@@ -40,12 +52,28 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Group>(entity =>
         {
             entity.HasKey(e => e.GroupId);
-            entity.Property(e => e.GroupId).HasMaxLength(36);
-            entity.Property(e => e.BudgetId).HasMaxLength(36).IsRequired();
-            entity.Property(e => e.GroupName).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.Order).HasMaxLength(4).IsRequired();
+
+            entity.Property(e => e.BudgetId)
+                .IsRequired();
+
+            entity.Property(e => e.GroupName)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(e => e.Order)
+                .IsRequired();
+
+            entity.Property(e => e.ModifiedAt)
+                .IsRequired(false);
+
+            entity.Property(e => e.IsDeleted)
+                .IsRequired();
 
             entity.HasIndex(e => e.BudgetId);
+
+            entity.HasOne(g => g.Budget)
+                .WithMany(b => b.Groups)
+                .HasForeignKey(g => g.BudgetId);
 
             entity.HasMany(e => e.Items)
                 .WithOne(e => e.Group)
@@ -57,13 +85,29 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Item>(entity =>
         {
             entity.HasKey(e => e.ItemId);
-            entity.Property(e => e.ItemId).HasMaxLength(36);
-            entity.Property(e => e.GroupId).HasMaxLength(36).IsRequired();
-            entity.Property(e => e.ItemName).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.Budgeted).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Spent).HasColumnType("decimal(18,2)");
 
-            entity.HasIndex(e => e.GroupId);
+            entity.Property(e => e.GroupId)
+                .IsRequired();
+
+            entity.Property(e => e.ItemName)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(e => e.Spent)
+                .IsRequired(false);
+
+            entity.Property(e => e.Budgeted)
+                .IsRequired(false);
+
+            entity.Property(e => e.ModifiedAt)
+                .IsRequired(false);
+
+            entity.Property(e => e.IsDeleted)
+                .IsRequired();
+
+            entity.HasOne(i => i.Group)
+                .WithMany(g => g.Items)
+                .HasForeignKey(i => i.GroupId);
         });
     }
 }

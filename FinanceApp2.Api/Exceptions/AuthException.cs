@@ -1,13 +1,11 @@
-﻿using FinanceApp2.Shared.Helpers;
-
-namespace FinanceApp2.Api.Exceptions
+﻿namespace FinanceApp2.Api.Exceptions
 {
     public class AuthException : Exception
     {
         public int StatusCode { get; }
-        public ResponseErrorCodes ErrorCode { get; }
+        public string ErrorCode { get; }
 
-        public AuthException(string message, int statusCode, ResponseErrorCodes errorCode)
+        public AuthException(string message, int statusCode, string errorCode)
             : base(message)
         {
             StatusCode = statusCode;

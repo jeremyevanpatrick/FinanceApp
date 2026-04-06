@@ -1,11 +1,12 @@
-﻿using FinanceApp2.Api.Data.Repositories;
+﻿using FinanceApp2.Api.Services.Background;
+using FinanceApp2.Api.Data.Repositories;
 using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Models;
+using FinanceApp2.Api.Services.Queues;
 using FinanceApp2.Api.Settings;
-using FinanceApp2.Shared.Helpers;
+using FinanceApp2.Shared.Errors;
 using FinanceApp2.Shared.Services.Responses;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -13,340 +14,415 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using FinanceApp2.Shared.Extensions;
 
 namespace FinanceApp2.Api.Services.Application
 {
     public class AuthAppService : IAuthAppService
     {
+        private readonly ILogger<AuthAppService> _logger;
         private readonly IAuthRepository _authRepository;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ClientSettings _clientSettings;
         private readonly JwtSettings _jwtSettings;
-        private readonly IEmailSender _emailSender;
+        private readonly IEmailSenderQueue _emailSenderQueue;
 
         public AuthAppService(
+            ILogger<AuthAppService> logger,
             IAuthRepository authRepository,
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IOptions<ClientSettings> clientSettings,
             IOptions<JwtSettings> jwtSettings,
-            IEmailSender emailSender)
+            IEmailSenderQueue emailSenderQueue)
         {
+            _logger = logger;
             _authRepository = authRepository;
             _userManager = userManager;
             _signInManager = signInManager;
             _clientSettings = clientSettings.Value;
             _jwtSettings = jwtSettings.Value;
-            _emailSender = emailSender;
+            _emailSenderQueue = emailSenderQueue;
         }
 
         public async Task RegisterAsync(string email, string password)
         {
-            ApplicationUser user = new ApplicationUser
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(RegisterAsync)))
             {
-                UserName = email,
-                Email = email
-            };
-
-            IdentityResult result = await _userManager.CreateAsync(user, password);
-
-            if (!result.Succeeded)
-            {
-                if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                ApplicationUser user = new ApplicationUser
                 {
-                    throw new AuthException("Password does not meet requirements.", StatusCodes.Status400BadRequest, ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
-                }
-                return;
-            }
+                    UserName = email,
+                    Email = email
+                };
 
-            await SendEmailConfirmationEmail(user);
+                IdentityResult result = await _userManager.CreateAsync(user, password);
+
+                if (!result.Succeeded)
+                {
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        throw new AuthException("Password does not meet requirements.", StatusCodes.Status400BadRequest, ApiErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
+                    return;
+                }
+
+                await SendEmailConfirmationEmail(user);
+            }
         }
 
         public async Task ResendConfirmationEmailAsync(string email)
         {
-            if (string.IsNullOrWhiteSpace(email))
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ResendConfirmationEmailAsync)))
             {
-                return;
-            }
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    return;
+                }
 
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-            {
-                return;
-            }
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user == null)
+                {
+                    return;
+                }
 
-            if (user.EmailConfirmed)
-            {
-                return;
-            }
+                if (user.EmailConfirmed)
+                {
+                    return;
+                }
 
-            await SendEmailConfirmationEmail(user);
+                await SendEmailConfirmationEmail(user);
+            }
         }
 
         private async Task SendEmailConfirmationEmail(ApplicationUser user)
         {
+            string emailSubject = "Confirm your email address";
+
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var confirmationUrl = $"{_clientSettings.Host}/login/confirmemail?userid={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encodedToken)}";
-            await _emailSender.SendEmailAsync(user.Email, "Confirm your email", $"Please confirm your account by <a href='{confirmationUrl}'>clicking here</a>.");
+            var confirmationUrl = $"{_clientSettings.Host}/confirmemail?userid={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encodedToken)}";
+            var messageHtml = $"Please confirm your account by <a href='{confirmationUrl}'>clicking here</a>.";
+
+            var emailDetails = new EmailDetails(user.Email, emailSubject, messageHtml);
+
+            _emailSenderQueue.Enqueue(emailDetails);
         }
 
         public async Task ConfirmEmailAsync(string userId, string token)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ConfirmEmailAsync)))
             {
-                throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
-            }
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ApiErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                }
 
-            string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+                string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
 
-            IdentityResult result = await _userManager.ConfirmEmailAsync(user, decodedToken);
+                IdentityResult result = await _userManager.ConfirmEmailAsync(user, decodedToken);
 
-            if (!result.Succeeded)
-            {
-                throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                if (!result.Succeeded)
+                {
+                    throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ApiErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                }
             }
         }
 
-        public async Task<AuthResponse> LoginAsync(string email, string password)
+        public async Task<(AuthResponse authResponse, string refreshTokenString)> LoginAsync(string email, string password)
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(LoginAsync)))
             {
-                throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ResponseErrorCodes.INVALID_CREDENTIALS);
-            }
-
-            var result = await _signInManager.CheckPasswordSignInAsync(
-                user,
-                password,
-                lockoutOnFailure: true);
-
-            if (!result.Succeeded)
-            {
-                if (result.IsLockedOut)
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user == null)
                 {
-                    var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
-                    var minutesRemaining = (int)(lockoutEnd.Value - DateTimeOffset.UtcNow).TotalMinutes;
-                    throw new AuthException($"Account is locked. Please try again in {minutesRemaining} minutes.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.ACCOUNT_LOCKED);
+                    throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS);
                 }
-                throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ResponseErrorCodes.INVALID_CREDENTIALS);
+
+                var result = await _signInManager.CheckPasswordSignInAsync(
+                    user,
+                    password,
+                    lockoutOnFailure: true);
+
+                if (!result.Succeeded)
+                {
+                    if (result.IsLockedOut)
+                    {
+                        var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+                        var minutesRemaining = (int)(lockoutEnd.Value - DateTimeOffset.UtcNow).TotalMinutes;
+                        throw new AuthException($"Account is locked. Please try again in {minutesRemaining} minutes.", StatusCodes.Status401Unauthorized, ApiErrorCodes.ACCOUNT_LOCKED);
+                    }
+                    throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS);
+                }
+
+                var accessToken = GenerateJwtToken(user);
+
+                AuthResponse authResponse = new AuthResponse
+                {
+                    AccessToken = accessToken,
+                    UserId = user.Id,
+                    Email = user.Email,
+                    AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
+                };
+
+                string refreshTokenString = await CreateRefreshTokenAsync(user.Id);
+
+                return (authResponse, refreshTokenString);
             }
-
-            var accessToken = GenerateJwtToken(user);
-
-            return new AuthResponse
-            {
-                AccessToken = accessToken,
-                UserId = user.Id,
-                Email = user.Email,
-                AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
-            };
         }
 
         public async Task<string> CreateRefreshTokenAsync(string userId)
         {
-            var refreshTokenString = GenerateRefreshToken();
-
-            await _authRepository.AddRefreshTokenAsync(new RefreshToken
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(CreateRefreshTokenAsync)))
             {
-                TokenHash = TokenHashHelper.Hash(refreshTokenString),
-                UserId = userId,
-                ExpiresAt = DateTime.UtcNow.AddDays(30),
-                CreatedAt = DateTime.UtcNow
-            });
+                var refreshTokenString = GenerateRefreshToken();
 
-            return refreshTokenString;
+                await _authRepository.AddRefreshTokenAsync(new RefreshToken
+                {
+                    TokenHash = TokenHashHelper.Hash(refreshTokenString),
+                    UserId = userId,
+                    ExpiresAt = DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                return refreshTokenString;
+            }
         }
 
         public async Task ForgotPasswordAsync(string email)
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null || !await _userManager.IsEmailConfirmedAsync(user))
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ForgotPasswordAsync)))
             {
-                return;
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user == null || !await _userManager.IsEmailConfirmedAsync(user))
+                {
+                    return;
+                }
+
+                await SendPasswordResetEmail(email, user);
             }
+        }
+
+        private async Task SendPasswordResetEmail(string email, ApplicationUser user)
+        {
+            string emailSubject = "Reset your password";
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
             var resetUrl = $"{_clientSettings.Host}/resetpassword?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(encodedToken)}";
-            await _emailSender.SendEmailAsync(email, "Reset your password", $"Reset your password by <a href='{resetUrl}'>clicking here</a>");
+            var messageHtml = $"Reset your password by <a href='{resetUrl}'>clicking here</a>";
+
+            var emailDetails = new EmailDetails(email, emailSubject, messageHtml);
+
+            _emailSenderQueue.Enqueue(emailDetails);
         }
 
         public async Task ResetPasswordAsync(string email, string resetCode, string newPassword)
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ResetPasswordAsync)))
             {
-                throw new AuthException("Invalid or expired reset link.", StatusCodes.Status400BadRequest, ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
-            }
-
-            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(resetCode));
-
-            var result = await _userManager.ResetPasswordAsync(user, decodedToken, newPassword);
-            if (!result.Succeeded)
-            {
-                if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user == null)
                 {
-                    throw new AuthException("Password does not meet requirements.", StatusCodes.Status400BadRequest, ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    throw new AuthException("Invalid or expired reset link.", StatusCodes.Status400BadRequest, ApiErrorCodes.TOKEN_INVALID_OR_EXPIRED);
                 }
 
-                throw new AuthException("Invalid or expired reset link.", StatusCodes.Status400BadRequest, ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(resetCode));
+
+                var result = await _userManager.ResetPasswordAsync(user, decodedToken, newPassword);
+                if (!result.Succeeded)
+                {
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        throw new AuthException("Password does not meet requirements.", StatusCodes.Status400BadRequest, ApiErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
+
+                    throw new AuthException("Invalid or expired reset link.", StatusCodes.Status400BadRequest, ApiErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                }
             }
         }
 
         public async Task ChangePasswordAsync(string userId, string existingPassword, string newPassword)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ChangePasswordAsync)))
             {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
-
-            IdentityResult result = await _userManager.ChangePasswordAsync(user, existingPassword, newPassword);
-            if (!result.Succeeded)
-            {
-                if (result.Errors.Any(e => e.Code == "PasswordMismatch"))
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
                 {
-                    throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ResponseErrorCodes.INVALID_CREDENTIALS);
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
                 }
 
-                if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                IdentityResult result = await _userManager.ChangePasswordAsync(user, existingPassword, newPassword);
+                if (!result.Succeeded)
                 {
-                    throw new AuthException("New password does not meet requirements.", StatusCodes.Status400BadRequest, ResponseErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
-                }
+                    if (result.Errors.Any(e => e.Code == "PasswordMismatch"))
+                    {
+                        throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS);
+                    }
 
-                throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
+                    if (result.Errors.Where(e => e.Code.StartsWith("Password")).Any())
+                    {
+                        throw new AuthException("New password does not meet requirements.", StatusCodes.Status400BadRequest, ApiErrorCodes.PASSWORD_DOES_NOT_MEET_REQUIREMENTS);
+                    }
+
+                    throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
+                }
             }
         }
 
         public async Task ChangeEmailAsync(string userId, string newEmail, string password)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ChangeEmailAsync)))
             {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
 
-            userId = user.Id;
+                userId = user.Id;
 
-            var passwordValid = await _userManager.CheckPasswordAsync(user, password);
-            if (!passwordValid)
-            {
-                throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ResponseErrorCodes.INVALID_CREDENTIALS);
-            }
+                var passwordValid = await _userManager.CheckPasswordAsync(user, password);
+                if (!passwordValid)
+                {
+                    throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS);
+                }
 
-            var existingUser = await _userManager.FindByEmailAsync(newEmail);
-            if (existingUser != null)
-            {
-                throw new AuthException("Email address is already in use.", StatusCodes.Status400BadRequest, ResponseErrorCodes.EMAIL_ADDRESS_ALREADY_IN_USE);
+                var existingUser = await _userManager.FindByEmailAsync(newEmail);
+                if (existingUser != null)
+                {
+                    throw new AuthException("Email address is already in use.", StatusCodes.Status400BadRequest, ApiErrorCodes.EMAIL_ADDRESS_ALREADY_IN_USE);
+                }
+
+                await SendChangeEmailEmail(newEmail, user);
             }
+        }
+
+        private async Task SendChangeEmailEmail(string newEmail, ApplicationUser user)
+        {
+            string emailSubject = "Confirm your new email address";
 
             string token = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
             var confirmationUrl = $"{_clientSettings.Host}/confirmemailchange?userid={Uri.EscapeDataString(user.Id)}&email={Uri.EscapeDataString(newEmail)}&token={Uri.EscapeDataString(encodedToken)}";
-            await _emailSender.SendEmailAsync(newEmail, "Confirm your new email", $"Please confirm your new email by <a href='{confirmationUrl}'>clicking here</a>.");
+            var messageHtml = $"Please confirm your new email by <a href='{confirmationUrl}'>clicking here</a>.";
+
+            var emailDetails = new EmailDetails(newEmail, emailSubject, messageHtml);
+
+            _emailSenderQueue.Enqueue(emailDetails);
         }
 
         public async Task ChangeEmailConfirmationAsync(string userId, string newEmail, string token)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(ChangeEmailConfirmationAsync)))
             {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
 
-            string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+                string decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
 
-            var result = await _userManager.ChangeEmailAsync(user, newEmail, decodedToken);
-            if (!result.Succeeded)
-            {
-                throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ResponseErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                var result = await _userManager.ChangeEmailAsync(user, newEmail, decodedToken);
+                if (!result.Succeeded)
+                {
+                    throw new AuthException("Invalid or expired confirmation link.", StatusCodes.Status400BadRequest, ApiErrorCodes.TOKEN_INVALID_OR_EXPIRED);
+                }
             }
         }
 
-        public async Task<AuthResponse> RefreshTokenAsync(string refreshTokenString)
+        public async Task<(AuthResponse authResponse, string newRefreshTokenString)> RotateRefreshTokenAsync(string? refreshTokenString)
         {
-            if (string.IsNullOrWhiteSpace(refreshTokenString))
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(RotateRefreshTokenAsync)))
             {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
+                if (string.IsNullOrWhiteSpace(refreshTokenString))
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
+
+                RefreshToken? refreshToken = await _authRepository.GetRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
+                if (refreshToken == null || refreshToken.IsRevoked || refreshToken.ExpiresAt < DateTime.UtcNow)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
+                await RevokeRefreshTokenAsync(refreshTokenString);
+
+                var user = await _userManager.FindByIdAsync(refreshToken.UserId);
+                if (user == null)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
+
+                var accessToken = GenerateJwtToken(user);
+
+                AuthResponse authResponse = new AuthResponse
+                {
+                    AccessToken = accessToken,
+                    AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
+                };
+
+                string newRefreshTokenString = await CreateRefreshTokenAsync(user.Id);
+
+                return (authResponse, newRefreshTokenString);
             }
-
-            RefreshToken? refreshToken = await _authRepository.GetRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
-            if (refreshToken == null || refreshToken.IsRevoked || refreshToken.ExpiresAt < DateTime.UtcNow)
-            {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
-
-            string userId = refreshToken.UserId;
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
-
-            refreshToken.IsRevoked = true;
-            refreshToken.RevokedAt = DateTime.UtcNow;
-            await _authRepository.UpdateRefreshTokenAsync(refreshToken);
-
-            var accessToken = GenerateJwtToken(user);
-
-            return new AuthResponse
-            {
-                AccessToken = accessToken,
-                AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes)
-            };
         }
 
-        public async Task LogoutAsync(string refreshTokenString)
+        public async Task RevokeRefreshTokenAsync(string refreshTokenString)
         {
-            if (string.IsNullOrWhiteSpace(refreshTokenString))
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(RevokeRefreshTokenAsync)))
             {
-                return;
-            }
+                if (string.IsNullOrWhiteSpace(refreshTokenString))
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
 
-            RefreshToken? refreshToken = await _authRepository.GetRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
-            if (refreshToken == null || refreshToken.IsRevoked || refreshToken.ExpiresAt < DateTime.UtcNow)
-            {
-                return;
-            }
+                RefreshToken? refreshToken = await _authRepository.GetRefreshTokenAsync(TokenHashHelper.Hash(refreshTokenString));
+                if (refreshToken == null || refreshToken.IsRevoked)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
 
-            refreshToken.IsRevoked = true;
-            refreshToken.RevokedAt = DateTime.UtcNow;
-            await _authRepository.UpdateRefreshTokenAsync(refreshToken);
+                refreshToken.IsRevoked = true;
+                refreshToken.RevokedAt = DateTime.UtcNow;
+                await _authRepository.UpdateRefreshTokenAsync(refreshToken);
+            }
         }
 
         public async Task DeleteAccountAsync(string userId, string password)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
+            using (_logger.BeginLoggingScope(nameof(AuthAppService), nameof(DeleteAccountAsync)))
             {
-                throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ResponseErrorCodes.AUTH_NO_LONGER_VALID);
-            }
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new AuthException("Authentication is no longer valid.", StatusCodes.Status401Unauthorized, ApiErrorCodes.AUTH_NO_LONGER_VALID);
+                }
 
-            var passwordValid = await _userManager.CheckPasswordAsync(user, password);
-            if (!passwordValid)
-            {
-                throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ResponseErrorCodes.INVALID_CREDENTIALS);
-            }
+                var passwordValid = await _userManager.CheckPasswordAsync(user, password);
+                if (!passwordValid)
+                {
+                    throw new AuthException("Invalid credentials", StatusCodes.Status401Unauthorized, ApiErrorCodes.INVALID_CREDENTIALS);
+                }
 
-            user.IsDeleted = true;
-            user.DeletedAt = DateTime.UtcNow;
+                user.IsDeleted = true;
+                user.DeletedAt = DateTime.UtcNow;
 
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded)
-            {
-                throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
-            }
+                var result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
+                }
 
-            List<RefreshToken> refreshTokenList = await _authRepository.GetUserRefreshTokensAsync(userId);
-            foreach (var refreshToken in refreshTokenList)
-            {
-                refreshToken.IsRevoked = true;
-                refreshToken.RevokedAt = DateTime.UtcNow;
+                List<RefreshToken> refreshTokenList = await _authRepository.GetUserRefreshTokensAsync(userId);
+                foreach (var refreshToken in refreshTokenList)
+                {
+                    refreshToken.IsRevoked = true;
+                    refreshToken.RevokedAt = DateTime.UtcNow;
+                }
+                await _authRepository.UpdateRefreshTokenRangeAsync(refreshTokenList);
             }
-            await _authRepository.UpdateRefreshTokenRangeAsync(refreshTokenList);
         }
 
         private string GenerateJwtToken(ApplicationUser user)

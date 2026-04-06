@@ -4,6 +4,8 @@ using FinanceApp2.Api.Models;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace FinanceApp2.Api.Tests.Repositories
 {
@@ -74,7 +76,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             var result = await repo.GetByDateAsync(userId, selectedMonth, selectedYear);
@@ -85,6 +87,137 @@ namespace FinanceApp2.Api.Tests.Repositories
             result.Month.Should().Be(selectedMonth);
             result.Year.Should().Be(selectedYear);
             result.IsDeleted.Should().Be(false);
+        }
+
+        [Fact]
+        public async Task GetByDateIncludingDeletedAsync_WhenUserHasBudget_ReturnsBudget()
+        {
+            // Arrange
+            var db = CreateDb();
+
+            var userId = Guid.NewGuid();
+            var selectedMonth = 1;
+            var selectedYear = 2026;
+
+            db.Budgets.Add(new Budget()
+            {
+                BudgetId = Guid.NewGuid(),
+                UserId = userId,
+                Month = 1,
+                Year = 2026,
+                Groups = new List<Group>()
+                {
+                    new Group()
+                    {
+                        GroupId = Guid.NewGuid(),
+                        GroupName = "Group 1",
+                        BudgetId = Guid.NewGuid(),
+                        Order = 1,
+                        Items = new List<Item>()
+                        {
+                            new Item()
+                            {
+                                ItemId = Guid.NewGuid(),
+                                GroupId = Guid.NewGuid(),
+                                Budgeted = 1000,
+                                Spent = 1000,
+                                ItemName = "Item 1",
+                                CreatedAt = DateTime.UtcNow.AddDays(-5),
+                                ModifiedAt = DateTime.UtcNow.AddDays(-2),
+                                IsDeleted = true
+                            },
+                            new Item()
+                            {
+                                ItemId = Guid.NewGuid(),
+                                GroupId = Guid.NewGuid(),
+                                Budgeted = 100,
+                                Spent = 100,
+                                ItemName = "Item 2",
+                                CreatedAt = DateTime.UtcNow.AddDays(-5),
+                                ModifiedAt = DateTime.UtcNow.AddDays(-2)
+                            }
+                        },
+                        CreatedAt = DateTime.UtcNow.AddDays(-5),
+                        ModifiedAt = DateTime.UtcNow.AddDays(-2)
+                    },
+                    new Group()
+                    {
+                        GroupId = Guid.NewGuid(),
+                        GroupName = "Group 2",
+                        BudgetId = Guid.NewGuid(),
+                        Order = 1,
+                        Items = new List<Item>()
+                        {
+                            new Item()
+                            {
+                                ItemId = Guid.NewGuid(),
+                                GroupId = Guid.NewGuid(),
+                                Budgeted = 1000,
+                                Spent = 1000,
+                                ItemName = "Item 3",
+                                CreatedAt = DateTime.UtcNow.AddDays(-5),
+                                ModifiedAt = DateTime.UtcNow.AddDays(-2)
+                            },
+                            new Item()
+                            {
+                                ItemId = Guid.NewGuid(),
+                                GroupId = Guid.NewGuid(),
+                                Budgeted = 100,
+                                Spent = 100,
+                                ItemName = "Item 4",
+                                CreatedAt = DateTime.UtcNow.AddDays(-5),
+                                ModifiedAt = DateTime.UtcNow.AddDays(-2)
+                            }
+                        },
+                        CreatedAt = DateTime.UtcNow.AddDays(-5),
+                        ModifiedAt = DateTime.UtcNow.AddDays(-2),
+                        IsDeleted = true
+                    }
+                }
+            });
+            db.Budgets.Add(new Budget()
+            {
+                BudgetId = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                Month = 2,
+                Year = 2026
+            });
+            db.Budgets.Add(new Budget()
+            {
+                BudgetId = Guid.NewGuid(),
+                UserId = userId,
+                Month = 3,
+                Year = 2026
+            });
+            db.Budgets.Add(new Budget()
+            {
+                BudgetId = Guid.NewGuid(),
+                UserId = userId,
+                Month = 1,
+                Year = 2026,
+                IsDeleted = true
+            });
+
+            await db.SaveChangesAsync();
+
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
+
+            // Act
+            var result = await repo.GetByDateIncludingDeletedAsync(userId, selectedMonth, selectedYear);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.UserId.Should().Be(userId);
+            result.Month.Should().Be(selectedMonth);
+            result.Year.Should().Be(selectedYear);
+            result.IsDeleted.Should().Be(false);
+            result.Groups.Should().HaveCount(2);
+            var resultGroup1 = result.Groups[0];
+            resultGroup1.Items.Should().HaveCount(2);
+            resultGroup1.Items.Should().Contain(i => i.ItemName == "Item 1" && i.IsDeleted);
+            var resultGroup2 = result.Groups[1];
+            resultGroup2.Items.Should().HaveCount(2);
+            resultGroup2.IsDeleted.Should().Be(true);
         }
 
         [Fact]
@@ -107,7 +240,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             var result = await repo.GetExistsByDateAsync(userId, selectedMonth, selectedYear);
@@ -151,7 +284,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             var result = await repo.GetExistsByDateAsync(userId, selectedMonth, selectedYear);
@@ -179,7 +312,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 Year = selectedYear
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             await repo.CreateAsync(budget);
@@ -226,7 +359,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 Year = selectedYear
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.CreateAsync(duplicateBudget);
@@ -307,7 +440,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             db.Entry(budget).State = EntityState.Detached;
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             var newLastChecked = DateTime.UtcNow;
@@ -436,7 +569,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 }
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             await repo.CreateGroupsAsync(groups);
@@ -499,7 +632,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 }
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.CreateGroupsAsync(duplicateGroup);
@@ -537,7 +670,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 }
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             await repo.CreateItemsAsync(items);
@@ -619,7 +752,7 @@ namespace FinanceApp2.Api.Tests.Repositories
                 }
             };
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.CreateItemsAsync(duplicateItem);
@@ -751,7 +884,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             await repo.DeleteUserDataAsync(userId);
@@ -802,7 +935,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             Func<Task> result = () => repo.DeleteUserDataAsync(Guid.NewGuid());
@@ -931,7 +1064,7 @@ namespace FinanceApp2.Api.Tests.Repositories
 
             await db.SaveChangesAsync();
 
-            var repo = new BudgetRepository(db);
+            var repo = new BudgetRepository(Mock.Of<ILogger<BudgetRepository>>(), db);
 
             // Act
             await repo.CleanupSoftDeletedUserDataAsync(1);

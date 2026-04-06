@@ -1,5 +1,6 @@
 ﻿@page "/"
 @page "/budgets"
+@page "/budgets/{year:int}/{month:int}"
 @using FinanceApp2.Shared.Models
 @using FinanceApp2.Shared.Services
 @using FinanceApp2.Shared.Services.DTOs
@@ -201,14 +202,12 @@
 
 @code{
     [Parameter]
-    [SupplyParameterFromQuery]
     public int? Month { get; set; }
 
     [Parameter]
-    [SupplyParameterFromQuery]
     public int? Year { get; set; }
 
-    private BudgetContainer budgetContainer = new BudgetContainer();
+    private BudgetContainerDto budgetContainer = new BudgetContainerDto();
     private List<GroupDto> orderedGroups => budgetContainer?.Budget?.Groups
         .Where(g => !g.IsDeleted)
         .OrderBy(g => g.Order)
@@ -264,10 +263,10 @@
         isInitialBudgetLoaded = false;
 
         await BudgetClient.GetBudgetAsync(currentBudgetDate.Year, currentBudgetDate.Month)
-        .HandleAsync<BudgetContainer?>(
-            onSuccess: (BudgetContainer? result) =>
+        .HandleAsync<BudgetContainerDto?>(
+            onSuccess: (BudgetContainerDto? result) =>
             {
-                budgetContainer = result ?? new BudgetContainer();
+                budgetContainer = result ?? new BudgetContainerDto();
                 isInitialBudgetLoaded = true;
                 statusMessageHelper.ClearStatuses();
                 StateHasChanged();
@@ -311,13 +310,13 @@
     private void NavigateToPreviousMonth()
     {
         DisableEnterMode();
-        NavManager.NavigateTo($"/budgets?month={previousBudgetDate.Month}&year={previousBudgetDate.Year}");
+        NavManager.NavigateTo($"/budgets/{previousBudgetDate.Year}/{previousBudgetDate.Month}");
     }
 
     private void NavigateToNextMonth()
     {
         DisableEnterMode();
-        NavManager.NavigateTo($"/budgets?month={nextBudgetDate.Month}&year={nextBudgetDate.Year}");
+        NavManager.NavigateTo($"/budgets/{nextBudgetDate.Year}/{nextBudgetDate.Month}");
     }
 
     private void EnableEnterMode()
@@ -433,7 +432,7 @@
             else
             {
                 MessageService.AddSuccess("Budget created successfully!");
-                NavManager.NavigateTo($"/budgets?month={newBudgetDate.Month}&year={newBudgetDate.Year}");
+                NavManager.NavigateTo($"/budgets/{newBudgetDate.Year}/{newBudgetDate.Month}");
             }
         }
     }

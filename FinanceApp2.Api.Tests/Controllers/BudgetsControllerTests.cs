@@ -1,15 +1,17 @@
 ﻿using FinanceApp2.Api.Controllers;
 using FinanceApp2.Api.Exceptions;
+using FinanceApp2.Api.Helpers;
 using FinanceApp2.Api.Services.Application;
+using FinanceApp2.Api.Tests.Helpers;
+using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.DTOs;
 using FinanceApp2.Shared.Services.Requests;
-using FinanceApp2.Api.Controllers;
-using FinanceApp2.Api.Services.Application;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Shared.Services.Responses;
 using System.Security.Claims;
 
 namespace FinanceApp2.Api.Tests.Controllers
@@ -18,8 +20,13 @@ namespace FinanceApp2.Api.Tests.Controllers
     {
         private static BudgetsController CreateControllerWithUser(Guid userId, Mock<IBudgetAppService> mockService)
         {
+            var mockLinkGenerator = TestHelpers.CreateLinkGeneratorMock();
+
+            var mockBudgetsLinkHelper = new BudgetsLinkHelper(mockLinkGenerator.Object);
+
             var controller = new BudgetsController(
                 Mock.Of<ILogger<BudgetsController>>(),
+                mockBudgetsLinkHelper,
                 mockService.Object);
 
             var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
@@ -27,11 +34,15 @@ namespace FinanceApp2.Api.Tests.Controllers
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString())
             }, "mock"));
 
-            controller.ControllerContext = new ControllerContext()
-            {
-                HttpContext = new DefaultHttpContext() { User = user }
+            controller.ControllerContext = new ControllerContext() {
+                HttpContext = new DefaultHttpContext()
+                {
+                    User = user,
+                    Items = new Dictionary<object, object?> {
+                        { "CorrelationId", Guid.NewGuid().ToString() }
+                    }
+                }
             };
-
             return controller;
         }
 
@@ -44,7 +55,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var year = 2026;
             var month = 3;
 
-            var budgetContainer = new BudgetContainer
+            var budgetContainer = new BudgetContainerDto
             {
                 Budget = new BudgetDto
                 {
@@ -70,11 +81,22 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Get(year, month);
 
             //Assert
-            var resultObject = result!.Result.Should().BeOfType<OkObjectResult>().Subject;
-            var resultBudgetContainer = (BudgetContainer)resultObject.Value;
-            resultBudgetContainer.Budget.Should().NotBeNull();
-            resultBudgetContainer.Budget.Month.Should().Be(month);
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<OkObjectResult>()
+                .Subject;
+
+            var resultBudgetContainer = httpResult
+                .Value
+                .Should()
+                .BeAssignableTo<BudgetContainerDto>()
+                .Subject;
+
+            resultBudgetContainer!.Budget!.Month.Should().Be(month);
             resultBudgetContainer.Budget.Year.Should().Be(year);
+
+            TestHelpers.HasValidLinks(resultBudgetContainer.Links);
         }
 
         [Fact]
@@ -97,7 +119,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Get(year, month);
 
             //Assert
-            result.Result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 
@@ -140,13 +162,26 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Create(request);
 
             //Assert
-            var createdResult = result!.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
-            createdResult.ActionName.Should().Be(nameof(controller.Get));
-            createdResult!.RouteValues!["year"].Should().Be(year);
-            createdResult.RouteValues["month"].Should().Be(month);
-            var budgetObject = (BudgetDto)createdResult.Value;
-            budgetObject.Month.Should().Be(month);
-            budgetObject.Year.Should().Be(year);
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<CreatedAtActionResult>()
+                .Subject;
+
+            httpResult!.ActionName.Should().Be(nameof(controller.Get));
+            httpResult.RouteValues!["year"].Should().Be(year);
+            httpResult.RouteValues["month"].Should().Be(month);
+
+            var resultBudget = httpResult
+                .Value
+                .Should()
+                .BeAssignableTo<BudgetDto>()
+                .Subject;
+
+            resultBudget!.Month.Should().Be(month);
+            resultBudget.Year.Should().Be(year);
+
+            TestHelpers.HasValidLinks(resultBudget.Links);
         }
 
         [Fact]
@@ -174,8 +209,24 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Create(request);
 
             //Assert
-            result.Result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(409);
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(409);
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -203,8 +254,24 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Create(request);
 
             //Assert
-            result.Result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(404);
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(404);
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -234,7 +301,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Create(request);
 
             //Assert
-            result.Result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 
@@ -263,7 +330,18 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Update(year, month, request);
 
             //Assert
-            result!.Should().BeOfType<NoContentResult>();
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<OkObjectResult>()
+                .Subject;
+
+            var links = httpResult.Value
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -291,8 +369,24 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Update(year, month, request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(404);
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(404);
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -320,12 +414,12 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Update(year, month, request);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
 
         [Fact]
-        public async Task Delete_ValidRequest_ReturnsNoContentResult()
+        public async Task Delete_ValidRequest_ReturnsOkObjectResult()
         {
             //Arrange
             var userId = Guid.NewGuid();
@@ -343,7 +437,18 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Delete(year, month);
 
             //Assert
-            result!.Should().BeOfType<NoContentResult>();
+            var httpResult = result!
+                .Result
+                .Should()
+                .BeOfType<OkObjectResult>()
+                .Subject;
+
+            var links = httpResult.Value
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -365,8 +470,24 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Delete(year, month);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(404);
+            var apiErrorResponse = result!
+                .Result
+                .Should()
+                .BeOfType<ObjectResult>()
+                .Subject
+                .Value
+                .Should()
+                .BeAssignableTo<ApiErrorResponse>()
+                .Subject;
+
+            apiErrorResponse.Status.Should().Be(404);
+
+            var links = apiErrorResponse.Links
+                .Should()
+                .BeAssignableTo<List<Link>>()
+                .Subject;
+
+            TestHelpers.HasValidLinks(links);
         }
 
         [Fact]
@@ -388,7 +509,7 @@ namespace FinanceApp2.Api.Tests.Controllers
             var result = await controller.Delete(year, month);
 
             //Assert
-            result.Should().BeOfType<ObjectResult>()
+            result!.Result.Should().BeOfType<ObjectResult>()
                 .Which.StatusCode.Should().Be(500);
         }
     }

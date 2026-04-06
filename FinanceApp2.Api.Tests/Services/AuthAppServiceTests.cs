@@ -2,7 +2,9 @@
 using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services.Application;
+using FinanceApp2.Api.Services.Queues;
 using FinanceApp2.Api.Settings;
+using FinanceApp2.Shared.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -68,22 +70,21 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var mockEmailSender = new Mock<IEmailSender>();
-            mockEmailSender.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(Task.CompletedTask);
+            var mockEmailSenderQueue = new Mock<IEmailSenderQueue>();
+            mockEmailSenderQueue.Setup(x => x.Enqueue(It.IsAny<EmailDetails>()));
             
             var clientSettings = new ClientSettings
             {
                 Host = "testHost"
             };
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Options.Create(clientSettings),
                 Mock.Of<IOptions<JwtSettings>>(),
-                mockEmailSender.Object);
+                mockEmailSenderQueue.Object);
 
             var email = "testEmail";
             var password = "testPwd";
@@ -95,8 +96,8 @@ namespace FinanceApp2.Api.Tests.Services
             createdUser.Should().NotBeNull();
             createdUser.Email.Should().Be(email);
             createdPassword.Should().Be(password);
-            mockEmailSender.Verify(
-                s => s.SendEmailAsync(email, It.IsAny<string>(), It.IsAny<string>()),
+            mockEmailSenderQueue.Verify(
+                s => s.Enqueue(It.IsAny<EmailDetails>()),
                 Times.Once);
         }
 
@@ -114,13 +115,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             var email = "testEmail";
             var password = "testPwd";
@@ -149,13 +150,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             var email = "testEmail";
             var password = "testPwd";
@@ -189,30 +190,29 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var mockEmailSender = new Mock<IEmailSender>();
-            mockEmailSender.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(Task.CompletedTask);
+            var mockEmailSenderQueue = new Mock<IEmailSenderQueue>();
+            mockEmailSenderQueue.Setup(x => x.Enqueue(It.IsAny<EmailDetails>()));
 
             var clientSettings = new ClientSettings
             {
                 Host = "testHost"
             };
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Options.Create(clientSettings),
                 Mock.Of<IOptions<JwtSettings>>(),
-                mockEmailSender.Object);
+                mockEmailSenderQueue.Object);
 
             // Act
             Func<Task> result = () => service.ResendConfirmationEmailAsync(email);
 
             // Assert
             await result.Should().NotThrowAsync<Exception>();
-            mockEmailSender.Verify(
-                s => s.SendEmailAsync(email, It.IsAny<string>(), It.IsAny<string>()),
+            mockEmailSenderQueue.Verify(
+                s => s.Enqueue(It.IsAny<EmailDetails>()),
                 Times.Once);
         }
 
@@ -223,13 +223,13 @@ namespace FinanceApp2.Api.Tests.Services
             var mockUserManager = CreateUserManager();
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             var email = "";
 
@@ -252,13 +252,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             var email = "testEmail";
 
@@ -281,13 +281,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             var email = "testEmail";
 
@@ -315,13 +315,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ConfirmEmailAsync(userId, token);
@@ -346,13 +346,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>()); 
+                Mock.Of<IEmailSenderQueue>()); 
 
             // Act
             Func<Task> result = () => service.ConfirmEmailAsync(userId, token);
@@ -380,13 +380,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ConfirmEmailAsync(userId, token);
@@ -399,6 +399,7 @@ namespace FinanceApp2.Api.Tests.Services
         public async Task LoginAsync_WhenValid_ReturnsAuthResponse()
         {
             // Arrange
+            var testRefreshToken = "testRefreshToken";
             var email = "testEmail";
             var password = "testPassword";
             var userId = Guid.NewGuid().ToString();
@@ -423,22 +424,21 @@ namespace FinanceApp2.Api.Tests.Services
                 Key = "testKey_at_least_16_characters_long"
             });
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 jwtSettings,
-                Mock.Of<IEmailSender>());
-
+                Mock.Of<IEmailSenderQueue>());
+            
             // Act
             var result = await service.LoginAsync(email, password);
 
             // Assert
-            result.Should().NotBeNull();
-            result.UserId.Should().Be(userId);
-            result.AccessToken.Should().NotBeNull();
-            result.RefreshToken.Should().BeNull();
+            result.authResponse.UserId.Should().Be(userId);
+            result.authResponse.AccessToken.Should().NotBeNull();
+            result.refreshTokenString.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
@@ -454,13 +454,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.LoginAsync(email, password);
@@ -487,13 +487,13 @@ namespace FinanceApp2.Api.Tests.Services
             mockSignInManager.Setup(m => m.CheckPasswordSignInAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<bool>()))
                 .ReturnsAsync(SignInResult.LockedOut);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.LoginAsync(email, password);
@@ -518,19 +518,47 @@ namespace FinanceApp2.Api.Tests.Services
             mockSignInManager.Setup(m => m.CheckPasswordSignInAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<bool>()))
                 .ReturnsAsync(SignInResult.NotAllowed);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.LoginAsync(email, password);
 
             // Assert
             await result.Should().ThrowAsync<AuthException>();
+        }
+
+        [Fact]
+        public async Task CreateRefreshTokenAsync_WhenValid_ReturnsToken()
+        {
+            // Arrange
+            var userId = Guid.NewGuid().ToString();
+
+            var mockUserManager = CreateUserManager();
+            var mockSignInManager = CreateSignInManager(mockUserManager);
+
+            var mockRepo = new Mock<IAuthRepository>();
+            mockRepo.Setup(m => m.AddRefreshTokenAsync(It.IsAny<RefreshToken>()))
+                .Returns(Task.CompletedTask);
+
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
+                mockRepo.Object,
+                mockUserManager.Object,
+                mockSignInManager.Object,
+                Mock.Of<IOptions<ClientSettings>>(),
+                Mock.Of<IOptions<JwtSettings>>(),
+                Mock.Of<IEmailSenderQueue>());
+
+            // Act
+            var result = await service.CreateRefreshTokenAsync(userId);
+
+            // Assert
+            result.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
@@ -549,30 +577,29 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var mockEmailSender = new Mock<IEmailSender>();
-            mockEmailSender.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(Task.CompletedTask);
+            var mockEmailSenderQueue = new Mock<IEmailSenderQueue>();
+            mockEmailSenderQueue.Setup(x => x.Enqueue(It.IsAny<EmailDetails>()));
 
             var clientSettings = Options.Create(new ClientSettings
             {
                 Host = "testHost"
             });
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 clientSettings,
                 Mock.Of<IOptions<JwtSettings>>(),
-                mockEmailSender.Object);
+                mockEmailSenderQueue.Object);
 
             // Act
             Func<Task> result = () => service.ForgotPasswordAsync(email);
 
             // Assert
             await result.Should().NotThrowAsync<Exception>();
-            mockEmailSender.Verify(
-                s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            mockEmailSenderQueue.Verify(
+                s => s.Enqueue(It.IsAny<EmailDetails>()),
                 Times.Once);
         }
 
@@ -590,13 +617,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ForgotPasswordAsync(email);
@@ -624,13 +651,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ResetPasswordAsync(email, token, password);
@@ -657,13 +684,13 @@ namespace FinanceApp2.Api.Tests.Services
             
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ResetPasswordAsync(email, token, password);
@@ -692,13 +719,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ResetPasswordAsync(email, token, password);
@@ -723,13 +750,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangePasswordAsync(email, oldPassword, newPassword);
@@ -756,13 +783,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangePasswordAsync(email, oldPassword, newPassword);
@@ -791,13 +818,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangePasswordAsync(email, oldPassword, newPassword);
@@ -826,13 +853,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangePasswordAsync(email, oldPassword, newPassword);
@@ -861,30 +888,29 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var mockEmailSender = new Mock<IEmailSender>();
-            mockEmailSender.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(Task.CompletedTask);
+            var mockEmailSenderQueue = new Mock<IEmailSenderQueue>();
+            mockEmailSenderQueue.Setup(x => x.Enqueue(It.IsAny<EmailDetails>()));
 
             var clientSettings = Options.Create(new ClientSettings
             {
                 Host = "testHost"
             });
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 clientSettings,
                 Mock.Of<IOptions<JwtSettings>>(),
-                mockEmailSender.Object);
+                mockEmailSenderQueue.Object);
 
             // Act
             Func<Task> result = () => service.ChangeEmailAsync(userId, email, password);
 
             // Assert
             await result.Should().NotThrowAsync<Exception>();
-            mockEmailSender.Verify(
-                s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            mockEmailSenderQueue.Verify(
+                s => s.Enqueue(It.IsAny<EmailDetails>()),
                 Times.Once);
         }
 
@@ -902,13 +928,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailAsync(userId, email, password);
@@ -933,13 +959,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailAsync(userId, email, password);
@@ -966,13 +992,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailAsync(userId, email, password);
@@ -1002,13 +1028,13 @@ namespace FinanceApp2.Api.Tests.Services
                 Host = "testHost"
             });
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 clientSettings,
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailConfirmationAsync(userId, email, token);
@@ -1034,13 +1060,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailConfirmationAsync(userId, email, token);
@@ -1072,13 +1098,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.ChangeEmailConfirmationAsync(userId, email, token);
@@ -1091,16 +1117,25 @@ namespace FinanceApp2.Api.Tests.Services
         }
 
         [Fact]
-        public async Task RefreshTokenAsync_WhenValid_ReturnsAuthResponse()
+        public async Task RotateRefreshTokenAsync_WhenValid_ReturnsAuthResponse()
         {
             // Arrange
             var userId = Guid.NewGuid().ToString();
             var email = "testEmail";
-            var refreshToken = "testKey_at_least_16_characters_long";
+            var refreshTokenString = "testKey_at_least_16_characters_long";
+            var newRefreshTokenString = "newTestRefreshToken";
 
             var mockRepo = new Mock<IAuthRepository>();
             mockRepo.Setup(m => m.GetRefreshTokenAsync(It.IsAny<string>()))
-                .ReturnsAsync(new RefreshToken() { Id = 123, UserId = Guid.NewGuid().ToString(), TokenHash = "testHash", IsRevoked = false, ExpiresAt = DateTime.UtcNow.AddDays(7) });
+                .ReturnsAsync(new RefreshToken()
+                {
+                    Id = 123,
+                    UserId = Guid.NewGuid().ToString(),
+                    TokenHash = "testHash",
+                    IsRevoked = false,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                    CreatedAt = DateTime.UtcNow
+                });
             mockRepo.Setup(m => m.AddRefreshTokenAsync(It.IsAny<RefreshToken>()))
                 .Returns(Task.CompletedTask);
             mockRepo.Setup(m => m.UpdateRefreshTokenAsync(It.IsAny<RefreshToken>()))
@@ -1109,8 +1144,6 @@ namespace FinanceApp2.Api.Tests.Services
             var mockUserManager = CreateUserManager();
             mockUserManager.Setup(m => m.FindByIdAsync(It.IsAny<string>()))
                 .ReturnsAsync(new ApplicationUser() { Id = userId, Email = email, UserName = email });
-            mockUserManager.Setup(m => m.ChangeEmailAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync(IdentityResult.Success);
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
@@ -1122,25 +1155,24 @@ namespace FinanceApp2.Api.Tests.Services
                 Key = "testKey_at_least_16_characters_long"
             });
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 jwtSettings,
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            var result = await service.RefreshTokenAsync(refreshToken);
+            var result = await service.RotateRefreshTokenAsync(refreshTokenString);
 
             // Assert
-            result.Should().NotBeNull();
-            result.AccessToken.Should().NotBeNull();
-            result.RefreshToken.Should().BeNull();
+            result.authResponse.AccessToken.Should().NotBeNull();
+            result.newRefreshTokenString.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
-        public async Task RefreshTokenAsync_WhenTokenIsEmpty_ThrowsException()
+        public async Task RotateRefreshTokenAsync_WhenTokenIsEmpty_ThrowsException()
         {
             // Arrange
             var refreshToken = string.Empty;
@@ -1148,23 +1180,23 @@ namespace FinanceApp2.Api.Tests.Services
             var mockUserManager = CreateUserManager();
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            Func<Task> result = () => service.RefreshTokenAsync(refreshToken);
+            Func<Task> result = () => service.RotateRefreshTokenAsync(refreshToken);
 
             // Assert
             await result.Should().ThrowAsync<AuthException>();
         }
 
         [Fact]
-        public async Task RefreshTokenAsync_WhenTokenIsExpired_ThrowsException()
+        public async Task RotateRefreshTokenAsync_WhenTokenIsExpired_ThrowsException()
         {
             // Arrange
             var refreshToken = "testKey_at_least_16_characters_long";
@@ -1177,30 +1209,31 @@ namespace FinanceApp2.Api.Tests.Services
                     UserId = Guid.NewGuid().ToString(),
                     TokenHash = "testHash",
                     IsRevoked = false,
-                    ExpiresAt = DateTime.UtcNow.AddDays(-1)
+                    ExpiresAt = DateTime.UtcNow.AddDays(-1),
+                    CreatedAt = DateTime.UtcNow
                 });
 
             var mockUserManager = CreateUserManager();
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            Func<Task> result = () => service.RefreshTokenAsync(refreshToken);
+            Func<Task> result = () => service.RotateRefreshTokenAsync(refreshToken);
 
             // Assert
             await result.Should().ThrowAsync<AuthException>();
         }
 
         [Fact]
-        public async Task LogoutAsync_WhenValid_RevokesToken()
+        public async Task RevokeRefreshTokenAsync_WhenValid_RevokesToken()
         {
             // Arrange
             var refreshToken = "testKey_at_least_16_characters_long";
@@ -1213,7 +1246,8 @@ namespace FinanceApp2.Api.Tests.Services
                     UserId = Guid.NewGuid().ToString(),
                     TokenHash = "testHash",
                     IsRevoked = false,
-                    ExpiresAt = DateTime.UtcNow.AddDays(1)
+                    ExpiresAt = DateTime.UtcNow.AddDays(1),
+                    CreatedAt = DateTime.UtcNow
                 });
             RefreshToken? updatedToken = null;
             mockRepo.Setup(m => m.UpdateRefreshTokenAsync(It.IsAny<RefreshToken>()))
@@ -1224,16 +1258,16 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            Func<Task> result = () => service.LogoutAsync(refreshToken);
+            Func<Task> result = () => service.RevokeRefreshTokenAsync(refreshToken);
 
             // Assert
             await result.Should().NotThrowAsync<AuthException>();
@@ -1242,7 +1276,7 @@ namespace FinanceApp2.Api.Tests.Services
         }
 
         [Fact]
-        public async Task LogoutAsync_WhenTokenIsEmpty_DoesNothing()
+        public async Task RevokeRefreshTokenAsync_WhenTokenIsEmpty_ThrowsException()
         {
             // Arrange
             var refreshToken = string.Empty;
@@ -1255,26 +1289,26 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 Mock.Of<IAuthRepository>(),
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            Func<Task> result = () => service.LogoutAsync(refreshToken);
+            Func<Task> result = () => service.RevokeRefreshTokenAsync(refreshToken);
 
             // Assert
-            await result.Should().NotThrowAsync<AuthException>();
+            await result.Should().ThrowAsync<AuthException>();
             mockRepo.Verify(
                 s => s.GetRefreshTokenAsync(It.IsAny<string>()),
                 Times.Never);
         }
 
         [Fact]
-        public async Task LogoutAsync_WhenTokenIsExpired_DoesNothing()
+        public async Task RevokeRefreshTokenAsync_WhenTokenIsRevoked_DoesNothing()
         {
             // Arrange
             var refreshToken = "testKey_at_least_16_characters_long";
@@ -1286,8 +1320,9 @@ namespace FinanceApp2.Api.Tests.Services
                     Id = 123,
                     UserId = Guid.NewGuid().ToString(),
                     TokenHash = "testHash",
-                    IsRevoked = false,
-                    ExpiresAt = DateTime.UtcNow.AddDays(-1)
+                    IsRevoked = true,
+                    ExpiresAt = DateTime.UtcNow.AddDays(1),
+                    CreatedAt = DateTime.UtcNow
                 });
             mockRepo.Setup(m => m.UpdateRefreshTokenAsync(It.IsAny<RefreshToken>()))
                 .Returns(Task.CompletedTask);
@@ -1296,19 +1331,19 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
-            Func<Task> result = () => service.LogoutAsync(refreshToken);
+            Func<Task> result = () => service.RevokeRefreshTokenAsync(refreshToken);
 
             // Assert
-            await result.Should().NotThrowAsync<AuthException>();
+            await result.Should().ThrowAsync<AuthException>();
             mockRepo.Verify(
                 s => s.UpdateRefreshTokenAsync(It.IsAny<RefreshToken>()),
                 Times.Never);
@@ -1332,7 +1367,8 @@ namespace FinanceApp2.Api.Tests.Services
                         UserId = userId,
                         TokenHash = "testHashActive",
                         IsRevoked = false,
-                        ExpiresAt = DateTime.UtcNow.AddDays(1)
+                        ExpiresAt = DateTime.UtcNow.AddDays(1),
+                        CreatedAt = DateTime.UtcNow
                     },
                     new RefreshToken()
                     {
@@ -1340,7 +1376,8 @@ namespace FinanceApp2.Api.Tests.Services
                         UserId = userId,
                         TokenHash = "testHashExpired",
                         IsRevoked = false,
-                        ExpiresAt = DateTime.UtcNow.AddDays(-1)
+                        ExpiresAt = DateTime.UtcNow.AddDays(-1),
+                        CreatedAt = DateTime.UtcNow
                     }
                 });
             List<RefreshToken> updatedTokens = new List<RefreshToken>();
@@ -1366,13 +1403,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.DeleteAccountAsync(userId, password);
@@ -1403,13 +1440,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.DeleteAccountAsync(userId, password);
@@ -1453,13 +1490,13 @@ namespace FinanceApp2.Api.Tests.Services
 
             var mockSignInManager = CreateSignInManager(mockUserManager);
 
-            var service = new AuthAppService(
+            var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
                 mockRepo.Object,
                 mockUserManager.Object,
                 mockSignInManager.Object,
                 Mock.Of<IOptions<ClientSettings>>(),
                 Mock.Of<IOptions<JwtSettings>>(),
-                Mock.Of<IEmailSender>());
+                Mock.Of<IEmailSenderQueue>());
 
             // Act
             Func<Task> result = () => service.DeleteAccountAsync(userId, password);
