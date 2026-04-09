@@ -1,8 +1,6 @@
-﻿using FinanceApp2.Api.Errors;
-using FinanceApp2.Api.Exceptions;
+﻿using FinanceApp2.Api.Exceptions;
 using FinanceApp2.Api.Extensions;
 using FinanceApp2.Api.Helpers;
-using FinanceApp2.Api.Models;
 using FinanceApp2.Api.Services.Application;
 using FinanceApp2.Shared.Errors;
 using FinanceApp2.Shared.Extensions;

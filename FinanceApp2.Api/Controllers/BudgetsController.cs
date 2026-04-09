@@ -67,7 +67,7 @@ namespace FinanceApp2.Api.Controllers
         public async Task<ActionResult<BudgetDto>> Create([FromBody] CreateBudgetRequest request)
         {
             string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
-            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Create), correlationId))
             {
                 Guid userId = Guid.Empty;
 
@@ -119,7 +119,7 @@ namespace FinanceApp2.Api.Controllers
         public async Task<ActionResult<List<Link>>> Update([FromRoute] int year, [FromRoute] int month, [FromBody] UpdateBudgetRequest request)
         {
             string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
-            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Update), correlationId))
             {
                 Guid userId = Guid.Empty;
 
@@ -162,7 +162,7 @@ namespace FinanceApp2.Api.Controllers
         public async Task<ActionResult<List<Link>>> Delete([FromRoute] int year, [FromRoute] int month)
         {
             string? correlationId = HttpContext.Items["CorrelationId"]?.ToString();
-            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Get), correlationId))
+            using (_logger.BeginLoggingScope(nameof(BudgetsController), nameof(Delete), correlationId))
             {
                 Guid userId = Guid.Empty;
 

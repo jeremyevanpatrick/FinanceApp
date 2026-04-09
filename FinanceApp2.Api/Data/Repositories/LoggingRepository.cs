@@ -19,7 +19,7 @@ namespace FinanceApp2.Api.Data.Repositories
 
         public async Task DeleteInfoLogsByDaysAsync(int purgeAfterDays)
         {
-            using (_logger.BeginLoggingScope(nameof(AuthRepository), nameof(DeleteInfoLogsByDaysAsync)))
+            using (_logger.BeginLoggingScope(nameof(LoggingRepository), nameof(DeleteInfoLogsByDaysAsync)))
             {
                 string logLevelString = LogLevel.Information.ToString();
                 DateTime purgeDate = DateTime.UtcNow.AddDays(-purgeAfterDays);
@@ -33,7 +33,7 @@ namespace FinanceApp2.Api.Data.Repositories
 
         public async Task DeleteErrorLogsByDaysAsync(int purgeAfterDays)
         {
-            using (_logger.BeginLoggingScope(nameof(AuthRepository), nameof(DeleteErrorLogsByDaysAsync)))
+            using (_logger.BeginLoggingScope(nameof(LoggingRepository), nameof(DeleteErrorLogsByDaysAsync)))
             {
                 string logLevelString = LogLevel.Error.ToString();
                 DateTime purgeDate = DateTime.UtcNow.AddDays(-purgeAfterDays);
