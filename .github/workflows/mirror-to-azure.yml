@@ -1,0 +1,24 @@
+name: Mirror to Azure Repos
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Azure Repos
+        run: |
+          git remote add azure "https://${AZURE_DEVOPS_PAT}@dev.azure.com/mrjepatrick/FinanceApp2/_git/FinanceApp.git"
+          git push azure --all
+          git push azure --tags
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
