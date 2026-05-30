@@ -5,7 +5,8 @@
   },
   "RemoteLogging": {
     "ApplicationName": "FinanceApp2.Api",
-    "Endpoint": "https://localhost:7169/application-logs/batch"
+    "Endpoint": "https://localhost:7169/application-logs/batch",
+    "EnableRunningLogs": false
   },
   "Logging": {
     "LogLevel": {

@@ -4,6 +4,7 @@
     {
         public string ApplicationName { get; set; } = null!;
         public string Endpoint { get; set; } = null!;
+        public bool EnableRunningLogs { get; set; }
     }
 
 }

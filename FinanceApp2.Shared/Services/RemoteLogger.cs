@@ -1,7 +1,6 @@
 ﻿using FinanceApp2.Shared.Models;
 using FinanceApp2.Shared.Services.Queues;
 using FinanceApp2.Shared.Settings;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -10,14 +9,20 @@ namespace FinanceApp2.Shared.Services;
 public class RemoteLogger : ILogger
 {
     private readonly string _categoryName;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IOptionsMonitor<RemoteLoggingSettings> _remoteLoggingSettings;
     private readonly IExternalScopeProvider _scopeProvider;
+    private readonly ILogProcessorQueue _logProcessorQueue;
 
-    public RemoteLogger(string categoryName, IServiceProvider serviceProvider)
+    public RemoteLogger(
+        string categoryName,
+        IOptionsMonitor<RemoteLoggingSettings> remoteLoggingSettings,
+        IExternalScopeProvider scopeProvider,
+        ILogProcessorQueue logProcessorQueue)
     {
         _categoryName = categoryName;
-        _serviceProvider = serviceProvider;
-        _scopeProvider = serviceProvider.GetRequiredService<IExternalScopeProvider>();
+        _remoteLoggingSettings = remoteLoggingSettings;
+        _scopeProvider = scopeProvider;
+        _logProcessorQueue = logProcessorQueue;
     }
 
     public IDisposable BeginScope<TState>(TState state)
@@ -25,7 +30,9 @@ public class RemoteLogger : ILogger
         return _scopeProvider.Push(state);
     }
 
-    public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
+    public bool IsEnabled(LogLevel logLevel) =>
+        logLevel >= LogLevel.Information &&
+        (logLevel >= LogLevel.Error || _remoteLoggingSettings.CurrentValue.EnableRunningLogs);
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
@@ -36,12 +43,6 @@ public class RemoteLogger : ILogger
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-
-            var remoteLoggingSettings = scope.ServiceProvider.GetRequiredService<IOptions<RemoteLoggingSettings>>().Value;
-
-            var logProcessorQueue = scope.ServiceProvider.GetRequiredService<ILogProcessorQueue>();
-
             string? className = null;
             string? methodName = null;
             string? correlationId = null;
@@ -79,7 +80,7 @@ public class RemoteLogger : ILogger
             {
                 Level = logLevel.ToString(),
                 ServerName = Environment.MachineName,
-                ApplicationName = remoteLoggingSettings.ApplicationName,
+                ApplicationName = _remoteLoggingSettings.CurrentValue.ApplicationName,
                 ErrorCode = errorCode,
                 Message = message,
                 MessageTemplate = messageTemplate,
@@ -87,7 +88,7 @@ public class RemoteLogger : ILogger
                 CorrelationId = correlationId
             };
 
-            logProcessorQueue.Enqueue(applicationLog);
+            _logProcessorQueue.Enqueue(applicationLog);
         }
         catch (Exception ex)
         {
