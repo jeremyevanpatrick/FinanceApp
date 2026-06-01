@@ -246,36 +246,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.Logger.LogInformation("APP STARTING - BEFORE MIGRATIONS");
-
-
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-
-    try
-    {
-        app.Logger.LogInformation("RUNNING DATABASE MIGRATION - AppDbContext");
-        services.GetRequiredService<AppDbContext>()
-            .Database.Migrate();
-
-        app.Logger.LogInformation("RUNNING DATABASE MIGRATION - AuthDbContext");
-        services.GetRequiredService<AuthDbContext>()
-            .Database.Migrate();
-
-        app.Logger.LogInformation("RUNNING DATABASE MIGRATION - LoggingDbContext");
-        services.GetRequiredService<LoggingDbContext>()
-            .Database.Migrate();
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "MIGRATION FAILED");
-        logger.LogError(ex, "Error applying database migrations");
-        throw;
-    }
-}
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
