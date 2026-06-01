@@ -11,7 +11,8 @@ steps:
 - task: DotNetCoreCLI@2
   displayName: Restore
   inputs:
-    command: 'restore'
+    command: restore
+    projects: '**/FinanceApp2.Api.csproj'
 - task: DotNetCoreCLI@2
   displayName: Build
   inputs:
@@ -24,18 +25,47 @@ steps:
     command: custom
     custom: tool
     arguments: install --global dotnet-ef
+- script: echo "##vso[task.prependpath]$(USERPROFILE)\.dotnet\tools"
+  displayName: Add dotnet tools to PATH
 - task: DotNetCoreCLI@2
-  displayName: Create EF Migration Bundle
+  displayName: Create EF Migration Bundle for LoggingDbContext
   inputs:
     command: custom
     custom: ef
     workingDirectory: '$(Build.SourcesDirectory)'
     arguments: >
       migrations bundle
+      --context LoggingDbContext
       --project FinanceApp2.Api/FinanceApp2.Api.csproj
       --startup-project FinanceApp2.Api/FinanceApp2.Api.csproj
       --configuration $(buildConfiguration)
-      --output $(Build.ArtifactStagingDirectory)/efbundle.exe
+      --output $(Build.ArtifactStagingDirectory)/efbundle_logging.exe
+- task: DotNetCoreCLI@2
+  displayName: Create EF Migration Bundle for AppDbContext
+  inputs:
+    command: custom
+    custom: ef
+    workingDirectory: '$(Build.SourcesDirectory)'
+    arguments: >
+      migrations bundle
+      --context AppDbContext
+      --project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --startup-project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --configuration $(buildConfiguration)
+      --output $(Build.ArtifactStagingDirectory)/efbundle_app.exe
+- task: DotNetCoreCLI@2
+  displayName: Create EF Migration Bundle for AuthDbContext
+  inputs:
+    command: custom
+    custom: ef
+    workingDirectory: '$(Build.SourcesDirectory)'
+    arguments: >
+      migrations bundle
+      --context AuthDbContext
+      --project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --startup-project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --configuration $(buildConfiguration)
+      --output $(Build.ArtifactStagingDirectory)/efbundle_auth.exe
 - task: DotNetCoreCLI@2
   displayName: Publish
   inputs:
