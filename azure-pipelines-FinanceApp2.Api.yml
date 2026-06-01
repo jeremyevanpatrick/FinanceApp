@@ -19,6 +19,24 @@ steps:
     projects: '**/FinanceApp2.Api.csproj'
     arguments: '--configuration $(buildConfiguration)'
 - task: DotNetCoreCLI@2
+  displayName: Install EF Tool
+  inputs:
+    command: custom
+    custom: tool
+    arguments: install --global dotnet-ef
+- task: DotNetCoreCLI@2
+  displayName: Create EF Migration Bundle
+  inputs:
+    command: custom
+    custom: ef
+    workingDirectory: '$(Build.SourcesDirectory)'
+    arguments: >
+      migrations bundle
+      --project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --startup-project FinanceApp2.Api/FinanceApp2.Api.csproj
+      --configuration $(buildConfiguration)
+      --output $(Build.ArtifactStagingDirectory)/efbundle.exe
+- task: DotNetCoreCLI@2
   displayName: Publish
   inputs:
     command: publish
@@ -29,5 +47,5 @@ steps:
 - task: PublishPipelineArtifact@1
   displayName: Upload
   inputs:
-    targetPath: '$(Build.ArtifactStagingDirectory)/api'
-    artifactName: 'FinanceApp2.Api artifact'
+    targetPath: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'FinanceApp2Api_artifact'
