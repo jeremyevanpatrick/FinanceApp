@@ -246,6 +246,29 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        services.GetRequiredService<AppDbContext>()
+            .Database.Migrate();
+
+        services.GetRequiredService<AuthDbContext>()
+            .Database.Migrate();
+
+        services.GetRequiredService<LoggingDbContext>()
+            .Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error applying database migrations");
+        throw;
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
