@@ -8,6 +8,12 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
+- task: FileTransform@2
+  inputs:
+    folderPath: '$(System.DefaultWorkingDirectory)'
+    enableXmlTransform: false
+    jsonTargetFiles: '**/appsettings.json'
+    errorOnInvalidSubstitution: true
 - task: DotNetCoreCLI@2
   displayName: Restore
   inputs:
