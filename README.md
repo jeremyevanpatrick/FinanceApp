@@ -1,78 +1,73 @@
-# Budget Planner Application
+# Finance App
 
-A full-stack **Budget Planner Application** built with **Blazor WebAssembly** and **ASP.NET Core Web API**, designed to help users manage finances, track expenses, and maintain financial awareness.
-
----
-
-## 🚀 Features
-
-* 💰 **Budget Management**
-
-  * Track income and expenses
-  * Organize financial data efficiently
-  * Monitor spending habits over time
-
-* 🔐 **Authentication & Account Management**
-
-  * Built with ASP.NET Core Identity
-  * JWT-based authentication
-  * Secure user registration and login flows
-
-* 🌐 **RESTful API**
-
-  * 18 endpoints supporting core application functionality
-  * Clean separation between frontend and backend
-
-* ⚙️ **Background Services**
-
-  * Logging and diagnostics
-  * Email processing (notifications, alerts)
-  * Scheduled maintenance tasks
+A full-stack budget planning and personal finance management application built with **Blazor WebAssembly** and **ASP.NET Core Web API**. Users can track income and expenses, organize financial data by category, and monitor spending habits over time through an interactive single-page application.
 
 ---
 
-## 🛠️ Tech Stack
+## Features
 
-* **Frontend:** Blazor WebAssembly
-* **Backend:** ASP.NET Core Web API
-* **Authentication:** ASP.NET Core Identity + JWT
-* **Database:** SQL Server
-* **ORM:** Entity Framework Core
-* **Testing:** xUnit
-* **Background Jobs:** Hosted Services
+**Budget & Finance Management**
+- Track income and expense transactions
+- Organize financial data by category
+- Monitor spending habits and trends over time
+- Maintain a running view of financial health
 
----
+**Authentication & Account Management**
+- User registration and login via ASP.NET Core Identity
+- JWT access tokens with HTTP-only refresh token cookie rotation
+- Secure logout with server-side token revocation
 
-## 🔐 Authentication Flow
+**RESTful API**
+- 18 endpoints covering the full scope of application functionality
+- Clean separation between frontend and backend — the API can be consumed independently
 
-1. User logs in with email and password via the Sessions endpoint
-2. Server returns:
-
-   * **JWT access token** (in response body)
-   * **Refresh token** stored as a secure, HTTP-only cookie
-3. Client uses the access token for authenticated API requests
-4. When the access token expires:
-
-   * Client calls the `/sessions/refresh` endpoint
-   * Server validates and **rotates the refresh token**
-   * A new access token and refresh token cookie are issued
-5. On logout:
-
-   * Refresh token is revoked server-side
-   * Refresh token cookie is deleted
+**Background Services**
+- Application logging and diagnostics
+- Email notification processing
+- Scheduled cleanup and maintenance tasks
 
 ---
 
-## ⚙️ Background Services
+## Tech Stack
 
-Background workers handle:
-
-* 📄 Application logging and monitoring
-* 📧 Email notifications and processing
-* 🧹 Scheduled cleanup and maintenance tasks
+| Technology | Purpose |
+|---|---|
+| Blazor WebAssembly | Client-side SPA frontend |
+| ASP.NET Core Web API | Backend REST API |
+| ASP.NET Core Identity | User management and authentication |
+| JWT (JSON Web Tokens) | Stateless API authentication |
+| Entity Framework Core | ORM and database migrations |
+| SQL Server | Primary data store |
+| xUnit | Unit testing |
+| Azure Pipelines | CI/CD |
 
 ---
 
-## 📄 License
+## Database Contexts
+
+The API uses three separate EF Core DbContexts, each bundled as its own self-contained migration executable in the CI pipeline:
+
+| Context | Purpose |
+|---|---|
+| `AppDbContext` | Core application data — transactions, budgets, categories |
+| `AuthDbContext` | Identity and authentication data — users, refresh tokens |
+| `LoggingDbContext` | Persisted application logs |
+
+---
+
+## Authentication Flow
+
+1. User registers or logs in via `POST /sessions`
+2. The server issues a short-lived **JWT access token** (returned in the response body) and a long-lived **refresh token** stored as a secure, HTTP-only cookie
+3. The Blazor client attaches the access token to subsequent API requests
+4. When the access token expires, the client calls `POST /sessions/refresh`
+5. The server validates the refresh token cookie, **rotates** it (invalidating the old one), and issues a new access token and refresh token cookie
+6. On logout, the refresh token is revoked server-side and the cookie is deleted
+
+The HTTP-only cookie design prevents refresh token access from JavaScript, protecting against XSS-based token theft.
+
+---
+
+## License
 
 This project is licensed under the MIT License.
