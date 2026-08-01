@@ -1,0 +1,57 @@
+@if (groupForm() && !groupForm()!.controls.isDeleted.value) {
+  <div class="groupContainer" [formGroup]="groupForm()">
+    <div class="groupItem contentRow bg-primary">
+      @if (isEnterMode()) {
+        <span class="deleteGroupBtn btn btn-danger squareBtn" (click)="onDeleteGroup()">×</span>
+      }
+      <input
+        class="groupNameInput form-control"
+        placeholder="Group Name"
+        formControlName="groupName"
+        [readonly]="!isEnterMode()"
+      />
+      <input class="groupIdInput" type="hidden" formControlName="groupId" />
+    </div>
+
+    @if (groupForm().controls.items.controls.length) {
+      <div formArrayName="items">
+        @for (item of groupForm().controls.items.controls; track item) {
+          <app-item
+            [isEnterMode]="isEnterMode()"
+            (delete)="onDeleteItem(item)"
+            [itemForm]="item"
+          ></app-item>
+        }
+      </div>
+    } @else {
+      <div class="noItems contentRow">
+        <span class="itemName">No Items were found.</span>
+      </div>
+    }
+
+    @if (isEnterMode()) {
+      <div class="addItemRow contentRow">
+        @if (isFirstGroup()) {
+          <div style="width: 34px" class="float-start">&nbsp;</div>
+        } @else {
+          <div class="btn btn-primary orderBtn" (click)="onMoveUpGroup()">▲</div>
+        }
+        <input
+          id="addItemInput"
+          class="addItemInput form-control"
+          [value]="newItemName()"
+          (input)="newItemName.set($any($event.target).value)"
+          placeholder="Add Item..."
+        />
+        <span id="addItemBtn" class="addItemBtn btn btn-success squareBtn" (click)="onAddItem()"
+          >+</span
+        >
+      </div>
+    }
+
+    <div class="groupTotalRow contentRow">
+      <div class="groupTotalInput form-control rightColInput">{{ groupTotal() ?? 0 }}</div>
+      <span class="groupTotalLabel">Total</span>
+    </div>
+  </div>
+}

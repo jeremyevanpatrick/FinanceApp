@@ -1,0 +1,3 @@
+<app-login-header></app-login-header>
+<app-login-form [isOpen]="showLogin()" (toggle)="onToggleSignIn()"></app-login-form>
+<app-register-form [isOpen]="!showLogin()" (toggle)="onToggleSignIn()"></app-register-form>

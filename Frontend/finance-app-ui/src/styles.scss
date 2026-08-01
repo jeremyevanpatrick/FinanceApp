@@ -1,0 +1,299 @@
+@use 'bootstrap/scss/bootstrap';
+
+@font-face {
+  font-family: 'fira-sans';
+  src: url('/fonts/firasans-regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+
+body {
+  margin: 0px;
+  padding: 0px;
+  border: 0px;
+  outline: 0px;
+  font-family: Arial;
+  font-size: 14px;
+  line-height: 40px;
+  color: #1a1a1a;
+  background-color: #b3cbff;
+  height: 100vh;
+}
+
+app-root {
+  max-width: 420px;
+  display: block;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #fff;
+  top: 0px;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/*****************************************
+*   Budget page styles
+*****************************************/
+#budgetList {
+  display: inline-block;
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.navigationContainer > input,
+.groupItem > input,
+.addGroupRow > input,
+.addItemRow > input,
+.itemItem > input,
+.itemItem .inputContainer > input,
+.groupTotalRow > .groupTotalInput {
+  border: 0px;
+  color: #1a1a1a;
+  pointer-events: none;
+}
+
+.groupTotalInput {
+  margin: 3px 2px;
+  padding-left: 0px;
+}
+
+.showEnter .navigationContainer > input,
+.showEnter .groupItem > input,
+.showEnter .addGroupRow > input,
+.showEnter .addItemRow > input,
+.showEnter .itemItem > input,
+.showEnter .itemItem .inputContainer > input {
+  pointer-events: auto;
+  border: 2px solid #ccc;
+}
+
+/*****************************************
+*   Header area styles
+*****************************************/
+#budgetHeader {
+  padding: 8px 0px;
+  width: 100%;
+  display: block;
+  font-family: arial, sans-serif;
+  border-bottom: 1px solid #ccc;
+  position: relative;
+  font-weight: inherit;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  line-height: 40px;
+}
+#nameplate {
+  font-size: 13pt;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-family: fira-sans;
+  max-width: calc(100% - 70px);
+  padding-left: 10px;
+}
+
+#nameplate > img {
+  margin-right: 5px;
+}
+
+.squareBtn {
+  width: 34px;
+  padding: 6px;
+  text-align: center;
+  line-height: 1.5;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+#editAccountBtn,
+#cancelEditBtn,
+#enterBtn,
+#saveEnterBtn,
+#cancelEnterBtn {
+  float: right;
+  margin: 3px;
+}
+
+.contentRow {
+  background-color: #ffffff;
+  width: 100%;
+  float: left;
+  border-bottom: 1px solid #ccc;
+  padding: 0px 3px 0px 10px;
+}
+
+.itemNameInput,
+.groupNameInput {
+  width: calc(100% - 148px);
+  margin-left: 0px;
+  float: left;
+  height: 35px;
+  margin: 3px 0px;
+}
+
+.showEnter .itemNameInput,
+.showEnter .groupNameInput {
+  width: calc(100% - 179px);
+  margin-left: 6px;
+  background-color: #ffffff;
+}
+
+.groupNameInput {
+  font-weight: bold;
+  width: calc(100% - 9px);
+}
+.showEnter .groupNameInput {
+  width: calc(100% - 40px);
+}
+
+.groupItem {
+  background-color: #cccbbc;
+}
+
+.addGroupRow {
+  display: none;
+  width: 100%;
+}
+
+.addItemRow {
+  display: none;
+}
+
+.showEnter .addGroupRow,
+.showEnter .addItemRow {
+  display: inline-block;
+}
+
+.addGroupInput,
+.addItemInput {
+  float: left;
+  margin-right: 6px;
+  height: 35px;
+  width: calc(100% - 179px);
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+.addGroupInput {
+  font-weight: bold;
+  margin-left: 40px;
+}
+
+.addItemInput {
+  margin-left: 6px;
+}
+
+.addGroupBtn,
+.addItemBtn {
+  float: left;
+}
+
+.deleteItemBtn,
+.deleteGroupBtn {
+  display: none;
+  float: left;
+}
+
+.showEnter .deleteItemBtn,
+.showEnter .deleteGroupBtn {
+  display: inline-block;
+}
+
+.squareBtn {
+  width: 34px;
+  padding: 6px;
+  text-align: center;
+  line-height: 1.5;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+.itemName {
+  font-family: Arial;
+  display: inline-block;
+  position: relative;
+  padding-left: 10px;
+  font-size: 13px;
+  text-decoration: none;
+  color: #1a1a1a;
+  padding-left: 40px;
+  max-width: calc(100% - 70px);
+}
+
+.form-floating label {
+  min-height: 27px !important;
+  top: 19px;
+  height: 27px !important;
+  line-height: 15px;
+  padding: 5px 12px;
+  left: 0.75rem;
+}
+
+.form-floating > .form-control-plaintext ~ label,
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label,
+.form-floating > .form-select ~ label {
+  top: 11px;
+}
+
+.form-floating label::after {
+  top: 2px !important;
+}
+
+.form-floating input {
+  margin: 3px 0px;
+  padding: 0.375rem 0.75rem;
+  border: 2px solid #ccc;
+  height: 50px !important;
+  padding-top: 24px;
+}
+
+.error {
+  color: bootstrap.$danger;
+}
+
+.btn {
+  font-size: 14px;
+}
+
+.rightColInput {
+  width: 63px;
+  float: right;
+  text-align: right;
+  height: 35px;
+  margin: 3px 0px;
+}
+.inputContainer {
+  border-left: 1px solid #cccccc;
+  float: right;
+  background-color: #fff;
+  padding: 0px 2px;
+}
+.groupTotalRow {
+  font-weight: bold;
+}
+
+.groupTotalLabel {
+  float: right;
+  line-height: 35px;
+  margin: 3px 0px;
+  padding: 0px 6px;
+}
+
+.orderBtn {
+  float: left;
+  width: 34px;
+  padding: 6px 8px;
+  height: 35px;
+  line-height: 19px;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}

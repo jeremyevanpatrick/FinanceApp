@@ -1,0 +1,33 @@
+@if (itemForm() && !itemForm()!.controls.isDeleted.value) {
+  <div class="itemItem contentRow" [formGroup]="itemForm()">
+    @if (isEnterMode()) {
+      <span class="deleteItemBtn btn btn-danger squareBtn" (click)="onDelete()">×</span>
+    }
+    <input
+      class="itemNameInput form-control"
+      placeholder="Item Name"
+      formControlName="itemName"
+      [readonly]="!isEnterMode()"
+    />
+    <div class="inputContainer">
+      <input
+        type="number"
+        class="itemBudgetedInput form-control rightColInput"
+        max="9999"
+        min="-9999"
+        formControlName="budgeted"
+        [readonly]="!isEnterMode()"
+      />
+    </div>
+    <div class="inputContainer">
+      <input
+        type="number"
+        class="itemSpentInput form-control rightColInput"
+        max="9999"
+        min="-9999"
+        formControlName="spent"
+        [readonly]="!isEnterMode()"
+      />
+    </div>
+  </div>
+}

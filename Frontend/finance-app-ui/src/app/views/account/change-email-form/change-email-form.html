@@ -1,0 +1,54 @@
+<div class="contentRow ps-3 pe-3 fw-bold bg-primary text-white">Change Email</div>
+@if (!isNewEmailSaved()) {
+  <app-error [errorMessage]="errorMessage()"></app-error>
+  <div class="contentRow ps-3 pe-3">
+    <form [formGroup]="form" (ngSubmit)="onChangeEmail()" autocomplete="off">
+      <div class="d-inline-block w-100">New Email</div>
+      <input
+        id="changeEmailNewEmail"
+        formControlName="email"
+        class="form-control float-start"
+        style="margin: 3px 0px"
+      />
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        @if (form.controls.email.errors?.['required']) {
+          <small class="error d-block">Email is required.</small>
+        }
+        @if (form.controls.email.errors?.['email']) {
+          <small class="error d-block">Invalid email format.</small>
+        }
+      }
+
+      <div class="d-inline-block w-100">Password</div>
+      <input
+        id="changeEmailPassword"
+        type="password"
+        formControlName="password"
+        class="form-control float-start"
+        style="margin: 3px 0px"
+      />
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        @if (form.controls.password.errors?.['required']) {
+          <small class="error d-block">Password is required.</small>
+        }
+      }
+
+      <button id="changeEmailBtn" type="submit" class="btn btn-success mt-3 mb-3">
+        @if (btnSpinner()) {
+          <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Save
+      </button>
+    </form>
+  </div>
+} @else {
+  <div
+    id="changeEmailSuccessMessage"
+    class="contentRow pt-4 pb-4 ps-3 pe-3"
+    style="line-height: 22px"
+  >
+    <strong>Request sent! Please confirm your email address.</strong><br />
+    We’ve sent a confirmation link to your email.<br />
+    Click the link to confirm your new email address.
+  </div>
+}

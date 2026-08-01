@@ -1,0 +1,33 @@
+<app-login-header></app-login-header>
+
+<div class="contentRow fs-5 p-2 text-center fw-bold" style="border-top: 1px solid #ccc">
+  Email Change Confirmation
+</div>
+
+<app-error [errorMessage]="errorMessage()"></app-error>
+
+@if (isLoading()) {
+  <div id="confirmingMessage" class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px">
+    Confirming your email address…
+  </div>
+} @else {
+  @if (isConfirmationSuccess()) {
+    <div
+      id="confirmEmailChangeSuccessMessage"
+      class="contentRow pt-4 pb-4 ps-3 pe-3"
+      style="line-height: 22px"
+    >
+      <strong>Email confirmed!</strong><br />
+      Your email address is now updated.
+    </div>
+  } @else {
+    <div
+      id="confirmEmailChangeErrorMessage"
+      class="contentRow pt-4 pb-4 ps-3 pe-3"
+      style="line-height: 22px"
+    >
+      <strong>Confirmation failed.</strong><br />
+      The link is invalid or has already been used.
+    </div>
+  }
+}

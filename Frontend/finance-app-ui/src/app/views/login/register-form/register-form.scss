@@ -1,0 +1,9 @@
+.collapsibleSection {
+    max-height: 0px;
+    overflow: hidden;
+    transition: max-height 1s ease;
+}
+
+.collapsibleSection.open {
+    max-height: 1000px;
+}

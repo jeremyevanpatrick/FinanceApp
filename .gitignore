@@ -437,3 +437,5 @@ FodyWeavers.xsd
 /Thumbnails
 /FinanceApp2.Web/wwwroot/appsettings.Development.json
 /FinanceApp2.Web/wwwroot/appsettings.Production.json
+/Frontend/finance-app-ui/src/environments/environment.development.ts
+/Frontend/finance-app-ui/src/environments/environment.production.ts

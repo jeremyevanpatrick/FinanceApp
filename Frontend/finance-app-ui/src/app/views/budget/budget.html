@@ -1,0 +1,204 @@
+@if (showConfirmDeleteBudget()) {
+  <div class="modal-backdrop fade show"></div>
+  <div class="modal show d-block">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <app-error [errorMessage]="errorMessage()"></app-error>
+          Are you sure you want to delete the {{ monthYearDisplay }} budget?
+        </div>
+        <div class="modal-footer">
+          <button
+            id="cancelDeleteBudgetBtn"
+            type="button"
+            class="btn btn-secondary"
+            (click)="onCancelDeleteBudget()"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirmDeleteBudgetBtn"
+            type="button"
+            (click)="onConfirmDeleteBudget()"
+            class="btn btn-danger"
+          >
+            @if (deleteBtnSpinner()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Yes, delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<div id="budgetList" [class.showEnter]="isEnterMode()">
+  <form [formGroup]="form" (ngSubmit)="onSaveChanges()">
+    <div id="budgetHeader">
+      <span id="nameplate"> <img src="favicon.ico" />Finance App </span>
+
+      @if (!isEnterMode()) {
+        @if (budgetId()) {
+          <div id="enterBtn" class="btn btn-primary" (click)="enableEnterMode()">Enter</div>
+        }
+        <div id="editAccountBtn" class="btn btn-primary" (click)="onEditAccount()">Profile</div>
+      } @else {
+        <button id="saveEnterBtn" type="submit" class="btn btn-success">
+          @if (btnSpinner()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Save
+        </button>
+        <div id="cancelEnterBtn" class="btn btn-danger" (click)="onCancelEdit()">Cancel</div>
+      }
+    </div>
+
+    @if (!showConfirmDeleteBudget()) {
+      <app-error [errorMessage]="errorMessage()"></app-error>
+    }
+
+    <div class="navigationContainer contentRow bg-light">
+      @if (!isEnterMode()) {
+        @if (budgetId() && !hasPreviousMonth()) {
+          <a
+            id="duplicateToPreviousBtn"
+            class="btn squareBtn float-start fw-bold"
+            (click)="onDuplicateCurrentBudgetToPrevious()"
+            >+</a
+          >
+        } @else {
+          <a
+            id="previousMonthBtn"
+            class="btn squareBtn float-start"
+            (click)="navigateToPreviousMonth()"
+            >&#9664;</a
+          >
+        }
+      } @else {
+        <span
+          id="deleteBudgetBtn"
+          class="deleteBudgetBtn btn btn-danger squareBtn float-start"
+          (click)="onShowConfirmDeleteBudget()"
+          >×</span
+        >
+      }
+
+      <span id="currentDate">
+        {{ monthYearDisplay }}
+      </span>
+
+      @if (!isEnterMode()) {
+        @if (budgetId() && !hasNextMonth()) {
+          <a
+            id="duplicateToNextBtn"
+            class="btn squareBtn float-start fw-bold"
+            (click)="onDuplicateCurrentBudgetToNext()"
+            >+</a
+          >
+        } @else {
+          <a id="nextMonthBtn" class="btn squareBtn float-start" (click)="navigateToNextMonth()"
+            >&#9654;</a
+          >
+        }
+      } @else {
+        <div class="squareBtn float-start">&nbsp;</div>
+      }
+
+      @if (budgetId()) {
+        <input
+          type="number"
+          id="income"
+          placeholder="Income"
+          class="float-end form-control"
+          formControlName="income"
+          step="any"
+          [readonly]="!isEnterMode()"
+        />
+      }
+    </div>
+
+    @if (isLoading()) {
+      <app-loading></app-loading>
+    } @else {
+      @if (!budgetId()) {
+        <app-empty
+          [hasPreviousMonth]="hasPreviousMonth()"
+          (createCurrentBudget)="onCreateCurrentBudget()"
+          (duplicatePreviousBudget)="onDuplicatePreviousBudget()"
+        ></app-empty>
+      } @else {
+        <div class="contentRow">
+          <div class="inputContainer">
+            <div class="rightColHeader itemBudgetedHeader">Budget</div>
+          </div>
+          <div class="inputContainer">
+            <div class="rightColHeader itemSpentHeader">Actual</div>
+          </div>
+        </div>
+
+        @if (sortedGroups().length) {
+          <div formArrayName="groups">
+            @for (group of sortedGroups(); track group) {
+              <app-group
+                [isEnterMode]="isEnterMode()"
+                [groupForm]="group"
+                [firstGroupOrder]="firstGroupOrderValue()"
+                (deleteGroup)="onDeleteGroup(group)"
+                (moveUpGroup)="onMoveUpGroup(group)"
+              ></app-group>
+            }
+          </div>
+        } @else {
+          <div id="noGroups" class="contentRow">
+            <span class="itemName">No Groups were found.</span>
+          </div>
+        }
+
+        @if (isEnterMode()) {
+          <div class="addGroupRow contentRow">
+            <input
+              id="addGroupInput"
+              class="addGroupInput form-control"
+              [value]="newGroupName()"
+              (input)="newGroupName.set($any($event.target).value)"
+              placeholder="Add Group..."
+            />
+            <span
+              id="addGroupBtn"
+              class="addGroupBtn btn btn-success squareBtn"
+              (click)="onAddGroup()"
+              >+</span
+            >
+          </div>
+        }
+
+        <div class="contentRow">
+          <span class="itemName"> </span>
+        </div>
+
+        <div class="contentRow">
+          <span class="totalAmountContainer"
+            >$<span id="incomeTotal">{{ form.controls.income.getRawValue() ?? 0 }}</span></span
+          >
+          <span class="totalAmountLabel">Income</span>
+        </div>
+        <div class="contentRow">
+          <span class="totalAmountContainer"
+            >$<span id="expensesTotal">{{ budgetTotal() }}</span></span
+          >
+          <span class="totalAmountLabel">Expenses</span>
+        </div>
+        <div class="contentRow">
+          <span
+            class="totalAmountContainer"
+            [ngStyle]="{ color: balanceTotal() < 0 ? 'red' : 'inherit' }"
+          >
+            $<span id="balanceTotal">{{ balanceTotal() }}</span>
+          </span>
+          <span class="totalAmountLabel">Balance</span>
+        </div>
+      }
+    }
+  </form>
+</div>

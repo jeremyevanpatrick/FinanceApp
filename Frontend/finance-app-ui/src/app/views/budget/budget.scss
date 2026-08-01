@@ -1,0 +1,154 @@
+#budgetList {
+  display: inline-block;
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/*****************************************
+*   Budget content area
+*****************************************/
+#currentDate {
+  font-weight: bold;
+  line-height: 35px;
+  float: left;
+  padding: 0px 6px;
+  font-size: 16px;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+.itemName {
+  font-family: Arial;
+  display: inline-block;
+  position: relative;
+  padding-left: 10px;
+  font-size: 13px;
+  text-decoration: none;
+  color: #1a1a1a;
+  padding-left: 40px;
+  max-width: calc(100% - 70px);
+}
+
+.itemItem a.itemName {
+  color: #fff;
+  font-size: 36px;
+  line-height: 48px;
+  padding: 26px 0px;
+  width: 100%;
+  text-decoration: none;
+}
+
+.menuHeader {
+  padding: 5px 3px;
+  color: #1a1a1a;
+  font-family: arial, sans-serif;
+  line-height: 18px;
+}
+
+.itemSpentInput {
+  margin-right: 3px;
+  padding-left: 0px;
+}
+
+.itemBudgetedInput {
+  padding-left: 0px;
+}
+
+.rightColHeader {
+  float: right;
+  width: 64px;
+  margin-top: 15px;
+  margin-bottom: -4px;
+  height: 24px;
+  font-size: 12px;
+  line-height: 24px;
+  text-align: center;
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
+  border-top: 1px solid #fff;
+  border-top-left-radius: 0.25rem;
+  border-top-right-radius: 0.25rem;
+  background-color: #fff;
+}
+
+.itemSpentHeader {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  height: 23px;
+}
+.itemBudgetedHeader {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  height: 23px;
+}
+
+.inputContainer {
+  border-left: 1px solid #cccccc;
+  float: right;
+  background-color: #fff;
+  padding: 0px 2px;
+}
+
+.groupTotalRow {
+  font-weight: bold;
+}
+
+.groupTotalLabel {
+  float: right;
+  line-height: 35px;
+  margin: 3px 0px;
+  padding: 0px 6px;
+}
+
+.orderBtn {
+  float: left;
+  width: 34px;
+  padding: 6px 8px;
+  height: 35px;
+  line-height: 19px;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+#income {
+  width: 132px;
+  height: 35px;
+  text-align: right;
+  border: 2px solid #ccc;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+.navigationContainer .btn:nth-child(2) {
+  margin: 0px 6px;
+}
+
+/*****************************************
+*   Bottom totals area
+*****************************************/
+.totalAmountContainer {
+  width: 130px;
+  float: right;
+  text-align: right;
+  font-size: 16px;
+}
+
+.totalAmountLabel {
+  width: 80px;
+  float: right;
+  text-align: left;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+#incomeTotal,
+#expensesTotal,
+#balanceTotal {
+  float: right;
+  text-align: right;
+  width: 90px;
+  padding-right: 40px;
+}

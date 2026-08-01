@@ -1,0 +1,26 @@
+<div id="budgetHeader">
+  <span id="nameplate"> <img src="favicon.ico" />Finance App </span>
+  <div id="backBtn" class="btn btn-secondary float-end" style="margin: 3px" (click)="onBack()">
+    Back
+  </div>
+  <a
+    href=""
+    id="logoutLink"
+    class="d-inline-block float-end ms-2 me-2"
+    (click)="onLogout(); $event.preventDefault()"
+    >Logout</a
+  >
+</div>
+
+<app-error [errorMessage]="errorMessage()"></app-error>
+
+<div class="contentRow fs-5 pt-2 pb-2 text-center fw-bold">Profile</div>
+<div class="contentRow ps-3 pe-3 text-center">
+  <div class="d-inline-block w-100">{{ userEmail }}</div>
+</div>
+
+<app-change-email-form></app-change-email-form>
+
+<app-change-password-form></app-change-password-form>
+
+<app-delete-account-form></app-delete-account-form>

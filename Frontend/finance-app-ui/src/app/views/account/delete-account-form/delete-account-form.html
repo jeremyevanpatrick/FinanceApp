@@ -1,0 +1,54 @@
+@if (isModalVisible()) {
+  <div class="modal-backdrop fade show"></div>
+  <div class="modal show d-block">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form [formGroup]="form" (ngSubmit)="onDeleteAccount()">
+          <div class="modal-body">
+            <app-error [errorMessage]="errorMessage()"></app-error>
+            Are you sure you want to permanently delete your account?
+            <div class="d-inline-block w-100">
+              Enter password to confirm this action.<br />
+              <input
+                id="deleteAccountPassword"
+                type="password"
+                formControlName="password"
+                class="form-control float-start"
+              />
+              @if (form.controls.password.touched && form.controls.password.invalid) {
+                @if (form.controls.password.errors?.['required']) {
+                  <small class="error d-block">Password is required.</small>
+                }
+              }
+              <span class="text-danger">Warning: This action cannot be reversed.</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="cancelDeleteBtn" class="btn btn-secondary" (click)="onHideDeleteModal()">
+              Cancel
+            </button>
+            <button
+              id="deleteAccountBtn"
+              type="submit"
+              class="btn btn-danger"
+              [disabled]="isButtonDisabled()"
+            >
+              @if (btnSpinner()) {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+              }
+              Yes, delete
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="contentRow ps-3 pe-3 fw-bold bg-primary text-white">Delete Account</div>
+<div class="contentRow ps-3 pe-3">
+  <div class="d-inline-block w-100">Delete all user data</div>
+  <button id="showDeleteModalBtn" class="btn btn-danger mt-2 mb-3" (click)="onShowDeleteModal()">
+    Delete
+  </button>
+</div>

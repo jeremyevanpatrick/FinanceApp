@@ -1,0 +1,23 @@
+<div class="navigationContainer contentRow bg-light">
+  @if (hasPreviousMonth) {
+    <button
+      id="duplicatePreviousBtn"
+      type="button"
+      class="btn btn-success float-start mt-2 mb-2 me-2"
+      (click)="onDuplicatePreviousBudget()"
+    >
+      + Duplicate Previous
+    </button>
+  }
+  <button
+    id="createCurrentBtn"
+    type="button"
+    class="btn btn-success float-start mt-2 mb-2"
+    (click)="onCreateCurrentBudget()"
+  >
+    + Create Budget
+  </button>
+</div>
+<div class="contentRow">
+  <span class="itemName">Create a budget to get started.</span>
+</div>

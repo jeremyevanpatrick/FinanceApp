@@ -1,0 +1,64 @@
+<app-login-header></app-login-header>
+
+<div class="contentRow fs-5 p-2 text-center fw-bold" style="border-top: 1px solid #ccc">
+  Email Confirmation
+</div>
+
+<app-error [errorMessage]="errorMessage()"></app-error>
+
+@if (isLoading()) {
+  <div id="confirmingMessage" class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px">
+    Confirming your email address…
+  </div>
+} @else {
+  @if (isConfirmationSuccess()) {
+    <div
+      id="confirmEmailSuccessMessage"
+      class="contentRow pt-4 pb-4 ps-3 pe-3"
+      style="line-height: 22px"
+    >
+      <strong>Email confirmed!</strong><br />
+      You can now sign in to your account.
+    </div>
+  } @else {
+    @if (!isEmailResent()) {
+      <div class="contentRow pt-4 pb-4 ps-3 pe-3" style="line-height: 22px">
+        <strong>Confirmation failed.</strong><br />
+        The link is invalid or has already been used.
+      </div>
+      <div class="contentRow ps-3 pe-3" style="padding-top: 3px; padding-bottom: 3px">
+        <form [formGroup]="form" (ngSubmit)="onResendEmailConfirmation()" autocomplete="off">
+          <div class="d-inline-block w-100 lh-base pt-3">
+            Enter your email address to resend the confirmation link.
+          </div>
+          <div class="d-inline-block w-100">Email</div>
+          <input id="email" formControlName="email" type="text" class="form-control" />
+          @if (form.controls.email.touched && form.controls.email.invalid) {
+            @if (form.controls.email.errors?.['required']) {
+              <small class="error d-block">Email is required.</small>
+            }
+            @if (form.controls.email.errors?.['email']) {
+              <small class="error d-block">Invalid email format.</small>
+            }
+          }
+          <button id="resendEmailConfirmationBtn" type="submit" class="btn btn-success mt-3 mb-3">
+            @if (btnSpinner()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Resend confirmation email
+          </button>
+        </form>
+      </div>
+    } @else {
+      <div
+        id="resendEmailConfirmationSuccessMessage"
+        class="contentRow pt-4 pb-4 ps-3 pe-3"
+        style="line-height: 22px"
+      >
+        <strong>Email sent!</strong><br />
+        We’ve sent a new confirmation link to your email.<br />
+        Click the link to activate your account and sign in.
+      </div>
+    }
+  }
+}
