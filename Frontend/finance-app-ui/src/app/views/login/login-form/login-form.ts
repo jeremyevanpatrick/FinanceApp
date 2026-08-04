@@ -55,5 +55,6 @@ export class LoginForm {
 
   onToggleSignIn() {
     this.toggle.emit();
+    this.errorMessage.set(undefined);
   }
 }

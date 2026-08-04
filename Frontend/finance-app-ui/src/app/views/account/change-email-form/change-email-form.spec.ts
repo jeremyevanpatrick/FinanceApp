@@ -77,7 +77,7 @@ describe('ChangeEmailForm', () => {
 
     //Verify request is sent
     expect(authClientMock.changeEmail).toHaveBeenCalledWith({
-      email: emailInput,
+      newEmail: emailInput,
       password: passwordInput,
     });
 

@@ -21,7 +21,7 @@ export class ChangeEmailForm {
   btnSpinner = signal(false);
 
   form = this.formBuilder.group({
-    email: ['', [Validators.required, Validators.email]],
+    newEmail: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required]],
   });
 

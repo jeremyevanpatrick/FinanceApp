@@ -7,6 +7,7 @@ import { AuthClient } from '../../services/auth-client';
 import { ActivatedRoute } from '@angular/router';
 import { LoginHeader } from '../login-header/login-header';
 import { finalize } from 'rxjs';
+import { passwordsMatchValidator } from '../../shared/validators/passwords-match';
 
 @Component({
   selector: 'app-reset-password',
@@ -32,10 +33,15 @@ export class ResetPassword {
   isEmailSent = signal(false);
   btnSpinner = signal(false);
 
-  form = this.formBuilder.group({
-    newPassword: ['', [Validators.required]],
-    repeatNewPassword: ['', [Validators.required]],
-  });
+  form = this.formBuilder.group(
+    {
+      password: ['', [Validators.required]],
+      passwordRepeat: ['', [Validators.required]],
+    },
+    {
+      validators: passwordsMatchValidator,
+    },
+  );
 
   onResetPassword() {
     if (this.form.invalid) return;
@@ -45,7 +51,7 @@ export class ResetPassword {
     const formValue = this.form.getRawValue();
 
     const request: ResetPasswordRequest = {
-      newPassword: formValue.newPassword,
+      newPassword: formValue.password,
       email: this.email,
       resetCode: this.token,
     };

@@ -23,7 +23,7 @@ export class ConfirmEmailChange {
   private token = '';
 
   ngOnInit(): void {
-    this.userId = this.route.snapshot.queryParamMap.get('userId') ?? '';
+    this.userId = this.route.snapshot.queryParamMap.get('userid') ?? '';
     this.email = this.route.snapshot.queryParamMap.get('email') ?? '';
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
 
@@ -40,7 +40,7 @@ export class ConfirmEmailChange {
     };
 
     this.auth
-      .confirmEmail(request)
+      .changeEmailConfirmation(request)
       .pipe(
         finalize(() => {
           this.isLoading.set(false);

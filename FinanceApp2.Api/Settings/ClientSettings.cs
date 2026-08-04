@@ -2,6 +2,7 @@
 {
     public class ClientSettings
     {
-        public string Host { get; set; } = null!;
+        public string AngularHost { get; set; } = null!;
+        public string BlazorHost { get; set; } = null!;
     }
 }

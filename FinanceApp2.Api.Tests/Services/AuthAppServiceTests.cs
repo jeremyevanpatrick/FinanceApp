@@ -75,7 +75,7 @@ namespace FinanceApp2.Api.Tests.Services
             
             var clientSettings = new ClientSettings
             {
-                Host = "testHost"
+                AngularHost = "testHost"
             };
 
             var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
@@ -195,7 +195,7 @@ namespace FinanceApp2.Api.Tests.Services
 
             var clientSettings = new ClientSettings
             {
-                Host = "testHost"
+                AngularHost = "testHost"
             };
 
             var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
@@ -582,7 +582,7 @@ namespace FinanceApp2.Api.Tests.Services
 
             var clientSettings = Options.Create(new ClientSettings
             {
-                Host = "testHost"
+                AngularHost = "testHost"
             });
 
             var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
@@ -893,7 +893,7 @@ namespace FinanceApp2.Api.Tests.Services
 
             var clientSettings = Options.Create(new ClientSettings
             {
-                Host = "testHost"
+                AngularHost = "testHost"
             });
 
             var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),
@@ -1025,7 +1025,7 @@ namespace FinanceApp2.Api.Tests.Services
 
             var clientSettings = Options.Create(new ClientSettings
             {
-                Host = "testHost"
+                AngularHost = "testHost"
             });
 
             var service = new AuthAppService(Mock.Of<ILogger<AuthAppService>>(),

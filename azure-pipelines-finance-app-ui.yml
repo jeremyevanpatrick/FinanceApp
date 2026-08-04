@@ -1,0 +1,59 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  nodeVersion: '24.x'
+  angularApp: 'Frontend/finance-app-ui'
+
+steps:
+
+- task: NodeTool@0
+  inputs:
+    versionSpec: $(nodeVersion)
+  displayName: 'Install Node.js'
+
+- script: |
+    node --version
+    npm --version
+  displayName: 'Verify Node.js installation'
+
+- script: |
+    npm ci
+  workingDirectory: $(Build.SourcesDirectory)/$(angularApp)
+  displayName: 'Install dependencies'
+
+- task: PowerShell@2
+  inputs:
+    targetType: inline
+    script: |
+      @"
+      export const environment = {
+        production: $(Production),
+        authBaseUrl: '$(AuthBaseUrl)',
+        apiBaseUrl: '$(ApiBaseUrl)',
+        appName: '$(AppName)',
+        remoteLoggingUrl: '$(RemoteLoggingUrl)',
+        enableRunningLogs: $(EnableRunningLogs)
+      };
+      "@ | Out-File src/environments/environment.ts
+
+- script: |
+    npm run build -- --configuration production
+  workingDirectory: $(Build.SourcesDirectory)/$(angularApp)
+  displayName: 'Build Angular application'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/$(angularApp)/dist/finance-app-ui/browser'
+    Contents: '**'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/angular'
+  displayName: 'Copy build output'
+
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)/angular'
+    artifact: 'finance-app-ui artifact'
+  displayName: 'Publish build artifacts'

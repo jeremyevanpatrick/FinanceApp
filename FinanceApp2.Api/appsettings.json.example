@@ -23,7 +23,8 @@
     }
   },
   "Client": {
-    "Host": "https://localhost:7134"
+    "AngularHost": "http://localhost:4200",
+    "BlazorHost": "https://localhost:7134"
   },
   "Jwt": {
     "Key": "YOUR_SECRET_JWT_KEY",

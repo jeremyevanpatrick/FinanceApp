@@ -19,14 +19,14 @@ describe('ConfirmEmailChange', () => {
 
   //mocking the API calls for maintainability and fast feedback
   let authClientMock: {
-    confirmEmail: ReturnType<
+    changeEmailConfirmation: ReturnType<
       typeof vi.fn<(request: ChangeEmailConfirmationRequest) => Observable<void>>
     >;
   };
 
   function setPath(userId: string, email: string, token: string) {
     const params = convertToParamMap({
-      userId: userId,
+      userid: userId,
       email: email,
       token: token,
     });
@@ -62,9 +62,11 @@ describe('ConfirmEmailChange', () => {
     };
 
     authClientMock = {
-      confirmEmail: vi.fn().mockImplementation((request: ChangeEmailConfirmationRequest) => {
-        return of(undefined);
-      }),
+      changeEmailConfirmation: vi
+        .fn()
+        .mockImplementation((request: ChangeEmailConfirmationRequest) => {
+          return of(undefined);
+        }),
     };
 
     await TestBed.configureTestingModule({
@@ -100,7 +102,7 @@ describe('ConfirmEmailChange', () => {
 
   //Verify page states
   it('should show in-progress message when page loads', () => {
-    authClientMock.confirmEmail.mockReturnValue(NEVER);
+    authClientMock.changeEmailConfirmation.mockReturnValue(NEVER);
     setPath('testuserid', 'testemail', 'testtoken');
 
     //Verify in-progress confirming message is displayed when page loads
@@ -129,7 +131,7 @@ describe('ConfirmEmailChange', () => {
     expect(component.errorMessage()).toBeFalsy();
 
     //Verify confirm email endpoint was called
-    expect(authClientMock.confirmEmail).toHaveBeenCalledWith({
+    expect(authClientMock.changeEmailConfirmation).toHaveBeenCalledWith({
       userId: userId,
       newEmail: email,
       token: token,
@@ -138,7 +140,7 @@ describe('ConfirmEmailChange', () => {
 
   it('should show error message when initial request fails', () => {
     //must override the mock BEFORE calling setPath()
-    authClientMock.confirmEmail = vi
+    authClientMock.changeEmailConfirmation = vi
       .fn()
       .mockImplementation((userId: string, email: string, token: string) => {
         return throwError(() => ({

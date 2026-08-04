@@ -101,7 +101,7 @@ namespace FinanceApp2.Api.Services.Application
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var confirmationUrl = $"{_clientSettings.Host}/confirmemail?userid={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encodedToken)}";
+            var confirmationUrl = $"{_clientSettings.AngularHost}/confirmemail?userid={Uri.EscapeDataString(user.Id)}&token={Uri.EscapeDataString(encodedToken)}";
             var messageHtml = $"Please confirm your account by <a href='{confirmationUrl}'>clicking here</a>.";
 
             var emailDetails = new EmailDetails(user.Email, emailSubject, messageHtml);
@@ -210,7 +210,7 @@ namespace FinanceApp2.Api.Services.Application
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var resetUrl = $"{_clientSettings.Host}/resetpassword?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(encodedToken)}";
+            var resetUrl = $"{_clientSettings.AngularHost}/resetpassword?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(encodedToken)}";
             var messageHtml = $"Reset your password by <a href='{resetUrl}'>clicking here</a>";
 
             var emailDetails = new EmailDetails(email, emailSubject, messageHtml);
@@ -305,7 +305,7 @@ namespace FinanceApp2.Api.Services.Application
 
             string token = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var confirmationUrl = $"{_clientSettings.Host}/confirmemailchange?userid={Uri.EscapeDataString(user.Id)}&email={Uri.EscapeDataString(newEmail)}&token={Uri.EscapeDataString(encodedToken)}";
+            var confirmationUrl = $"{_clientSettings.AngularHost}/confirmemailchange?userid={Uri.EscapeDataString(user.Id)}&email={Uri.EscapeDataString(newEmail)}&token={Uri.EscapeDataString(encodedToken)}";
             var messageHtml = $"Please confirm your new email by <a href='{confirmationUrl}'>clicking here</a>.";
 
             var emailDetails = new EmailDetails(newEmail, emailSubject, messageHtml);

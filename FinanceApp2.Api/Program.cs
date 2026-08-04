@@ -235,9 +235,9 @@ var clientSettings = builder.Configuration.GetSection("Client").Get<ClientSettin
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("BlazorPolicy", policy =>
+    options.AddPolicy("CorsPolicy", policy =>
     {
-        policy.WithOrigins(clientSettings.Host)
+        policy.WithOrigins(new[] { clientSettings.AngularHost, clientSettings.BlazorHost })
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -256,7 +256,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseHttpsRedirection();
 
-app.UseCors("BlazorPolicy");
+app.UseCors("CorsPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();

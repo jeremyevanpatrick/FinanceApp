@@ -65,5 +65,6 @@ export class RegisterForm {
 
   onToggleSignIn() {
     this.toggle.emit();
+    this.errorMessage.set(undefined);
   }
 }

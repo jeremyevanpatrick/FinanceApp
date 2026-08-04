@@ -6,15 +6,15 @@
       <div class="d-inline-block w-100">New Email</div>
       <input
         id="changeEmailNewEmail"
-        formControlName="email"
+        formControlName="newEmail"
         class="form-control float-start"
         style="margin: 3px 0px"
       />
-      @if (form.controls.email.touched && form.controls.email.invalid) {
-        @if (form.controls.email.errors?.['required']) {
+      @if (form.controls.newEmail.touched && form.controls.newEmail.invalid) {
+        @if (form.controls.newEmail.errors?.['required']) {
           <small class="error d-block">Email is required.</small>
         }
-        @if (form.controls.email.errors?.['email']) {
+        @if (form.controls.newEmail.errors?.['email']) {
           <small class="error d-block">Invalid email format.</small>
         }
       }
