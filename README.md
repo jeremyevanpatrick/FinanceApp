@@ -1,6 +1,6 @@
 # Finance App
 
-A full-stack budget planning and personal finance management application built with **Blazor WebAssembly** and **ASP.NET Core Web API**. Users can track income and expenses, organize financial data by category, and monitor spending habits over time through an interactive single-page application.
+A full-stack budget planning and personal finance management application built with **ASP.NET Core Web API** and two alternative front-end implementations using **Angular** and **Blazor WebAssembly**. Users can track income and expenses, organize financial data by category, and monitor spending habits over time through an interactive single-page application.
 
 ---
 
@@ -32,6 +32,7 @@ A full-stack budget planning and personal finance management application built w
 
 | Technology | Purpose |
 |---|---|
+| Angular 22 | Client-side SPA frontend |
 | Blazor WebAssembly | Client-side SPA frontend |
 | ASP.NET Core Web API | Backend REST API |
 | ASP.NET Core Identity | User management and authentication |
@@ -59,7 +60,7 @@ The API uses three separate EF Core DbContexts, each bundled as its own self-con
 
 1. User registers or logs in via `POST /sessions`
 2. The server issues a short-lived **JWT access token** (returned in the response body) and a long-lived **refresh token** stored as a secure, HTTP-only cookie
-3. The Blazor client attaches the access token to subsequent API requests
+3. The Angular/Blazor client attaches the access token to subsequent API requests
 4. When the access token expires, the client calls `POST /sessions/refresh`
 5. The server validates the refresh token cookie, **rotates** it (invalidating the old one), and issues a new access token and refresh token cookie
 6. On logout, the refresh token is revoked server-side and the cookie is deleted
